@@ -4,6 +4,8 @@ This application is a desktop-based interactive simulator designed to mimic the 
 
 Created by Kaitlin Harold, VP&S c/o 2028, with the help of Google Gemini
 
+For suggestions on how to improve, feel free to GroupMe message or email me at kaitlinharold@gmail.com
+
 ## 🛠️ Prerequisites & Installation
 
 This application requires **Python 3.x**. To run the code, you will need to install a few third-party Python libraries that handle PDF extraction and image rendering.
@@ -37,7 +39,11 @@ LAB_VALUES_PDF_PATH = "path/to/your/lab_values_reference.pdf"
 * Launch the application by running the Python script.
 * Click the **"Load PDF"** button in the bottom left corner.
 * Select your PDF file. The parser specifically looks for questions formatted with a number followed by a period (e.g., `1.`) and ending with a question mark (`?`), with answer options formatted with capital letters and a parenthesis (e.g., `A)`).
+    * For best results, the PDF should be screenshots of the NBME exam (like those provided in the shared drive). For example:
+![Screenshot of an NBME practice test question](PDF_Example.png "NBME Practice Test")
 * Once loaded, the timer will automatically start (calculated at 90 seconds per question).
+
+
 
 ### 2. Taking the Test
 
