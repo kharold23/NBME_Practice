@@ -706,13 +706,17 @@ class NBMESimulatorApp:
 
     def parse_text_to_questions(self, raw_pages):
         parsed_questions = []
-        options = []
+        pages_with_questions = set()
         inverted_q_remaining = 0
 
         for page_data in raw_pages:
             page_text = page_data["text"]
             page_image = page_data["image"]
+            page_num = page_data["page_num"]
             clean_text = page_text.strip()
+            
+            # Reset options for each page to avoid carrying over previous options
+            options = []
 
             # Correct common OCR mistake
             clean_text = re.sub(r'[1|lI]\)', 'I)', clean_text)
@@ -740,6 +744,7 @@ class NBMESimulatorApp:
 
                     if options:
                         parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=True, instructions=instructions))
+                        pages_with_questions.add(page_num)
                 
                 inverted_q_remaining -= 1
                 continue
@@ -760,8 +765,13 @@ class NBMESimulatorApp:
 
             if options:
                 parsed_questions.append(Question(self.root,q_text, options, image=page_image, inverted=False))
+                pages_with_questions.add(page_num)
                 
-        return parsed_questions
+        # Calculate which pages didn't yield any questions
+        all_pages = [p["page_num"] for p in raw_pages]
+        unparsed_pages = [p for p in all_pages if p not in pages_with_questions]
+                
+        return parsed_questions, unparsed_pages
 
     def preprocess_for_ocr(self, img, page_num=None):
         """
@@ -867,6 +877,15 @@ class NBMESimulatorApp:
             progress_win.transient(self.root)
             progress_win.grab_set() # Block interaction with main window while loading
             
+            # --- FEATURE 2: Handle OCR Cancellation ---
+            self.cancel_ocr = False
+            def on_close_progress():
+                self.cancel_ocr = True
+                progress_win.destroy()
+                
+            progress_win.protocol("WM_DELETE_WINDOW", on_close_progress)
+            # ----------------------------------------
+            
             tk.Label(progress_win, text="Reading and OCRing pages...").pack(pady=10)
             progress_bar = ttk.Progressbar(progress_win, orient=tk.HORIZONTAL, length=250, mode='determinate', maximum=total_pages)
             progress_bar.pack(pady=10)
@@ -876,6 +895,12 @@ class NBMESimulatorApp:
             raw_pages = []
             
             for page_num in range(total_pages):
+                # --- Halt execution if window was closed ---
+                if self.cancel_ocr:
+                    messagebox.showinfo("Cancelled", "PDF processing was cancelled.")
+                    return
+                # -------------------------------------------
+                
                 # --- Update UI ---
                 progress_bar['value'] = page_num + 1
                 progress_lbl.config(text=f"Processing page {page_num + 1} of {total_pages}")
@@ -899,14 +924,16 @@ class NBMESimulatorApp:
                 # 3. STORE BOTH
                 raw_pages.append({
                     "text": text, 
-                    "image": raw_img, # This stays 'clean' for the user to see
+                    "image": raw_img, 
                     "page_num": page_num + 1
                 })
 
-            progress_win.destroy() # Close the progress window
+            # Safely close the progress window if it wasn't cancelled
+            if not self.cancel_ocr and progress_win.winfo_exists():
+                progress_win.destroy()
 
             # Trigger the parsing pipeline
-            new_questions = self.parse_text_to_questions(raw_pages)
+            new_questions, unparsed_pages = self.parse_text_to_questions(raw_pages)
             
             # UI Updates
             if new_questions:
@@ -919,15 +946,28 @@ class NBMESimulatorApp:
                 
                 self.lbl_subtitle_center.config(text="PRACTICE Self-Assessment", fg=self.text_white)
                 self.time_left = len(self.questions) * 90
-                self.start_timer()
                 self.update_ui()
-                messagebox.showinfo("Success", f"Loaded {len(self.questions)} questions.")
+                
+                # --- FEATURE 1: Post-processing Summary & Start Prompt ---
+                unparsed_str = f"Pages with no new questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
+                msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
+                
+                start_exam = messagebox.askyesno("Processing Complete", msg)
+                
+                if start_exam:
+                    self.start_timer()
+                else:
+                    # Format time visually without starting the loop
+                    hrs, remainder = divmod(self.time_left, 3600)
+                    mins, secs = divmod(remainder, 60)
+                    self.lbl_time_remaining.config(text=f"{hrs} hr {mins:02d} min {secs:02d} sec (Paused)")
+                # ---------------------------------------------------------
             else:
                 messagebox.showwarning("Warning", "Could not parse any questions.")
 
         except Exception as e:
-            # Ensure progress window is destroyed if an error occurs
-            if 'progress_win' in locals(): progress_win.destroy()
+            if 'progress_win' in locals() and progress_win.winfo_exists(): 
+                progress_win.destroy()
             messagebox.showerror("Error", f"Failed to read file: {e}")
 
 if __name__ == "__main__":
