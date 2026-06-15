@@ -10,25 +10,26 @@ For suggestions on how to improve, feel free to GroupMe message or email me at k
 
 This application requires **Python 3.x**. To run the code, you will need to install a few third-party Python libraries that handle PDF extraction and image rendering.
 
-Open your terminal or command prompt and run the following command:
+Open your terminal or command prompt and run the following commands:
+
+<details>
+  <summary>If you need to install Homebrew</summary>
 
 ```bash
-pip install PyMuPDF Pillow PyPDF2
+bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+</details>
 
+```bash
+brew install tesseract
+pip3 install pytesseract PyMuPDF Pillow PyPDF2
 ```
 
+* **Tesseract:** Used to pull text from the PDF
 * **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
 * **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
 * **PyPDF2:** Used as a fallback and text-extraction utility.
-
-### Additional Setup
-
-Before running the script, open the Python file and update the `LAB_VALUES_PDF_PATH` variable (near the top of the file) to point to the local file path of your lab values PDF.
-
-```python
-LAB_VALUES_PDF_PATH = "path/to/your/lab_values_reference.pdf" 
-
-```
 
 ---
 
