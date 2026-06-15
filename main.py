@@ -20,14 +20,37 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-# ==========================================
-# CODER CONFIGURATION
-# ==========================================
-LAB_VALUES_PDF_PATH = "lab_values_reference.pdf"
+def get_tesseract_cmd():
+    # If running as a frozen app (the .app bundle)
+    if getattr(sys, 'frozen', False):
+        # We assume you bundled the tesseract binary inside the .app/Contents/MacOS/ folder
+        # or in a specific subfolder.
+        base_path = os.path.dirname(sys.executable)
+        tess_path = os.path.join(base_path, 'Tesseract-OCR', 'tesseract')
+        return tess_path
+    else:
+        # Standard location for Homebrew Tesseract on Mac
+        # You can check both common locations
+        possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        return 'tesseract' # Fallback to looking in the system PATH
 
-# If on Windows, uncomment and update the line below to point to your Tesseract installation:
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# ==========================================
+pytesseract.pytesseract.tesseract_cmd = get_tesseract_cmd()
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+# Update your configuration line to use this function:
+LAB_VALUES_PDF_PATH = resource_path("lab_values_reference.pdf")
 
 class Question:
     def __init__(self, root, text, options, image=None, inverted=False, instructions=""):
