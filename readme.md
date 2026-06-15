@@ -4,7 +4,7 @@ This application is a desktop-based interactive simulator designed to mimic the 
 
 Created by Kaitlin Harold, VP&S c/o 2028, with the help of Google Gemini
 
-For suggestions on how to improve, feel free to GroupMe message or email me at kaitlinharold@gmail.com
+For suggestions on how to improve, feel free to send me a GroupMe message or post in Issues!
 
 ## 🛠️ Prerequisites & Installation
 
@@ -27,10 +27,6 @@ brew install tesseract
 pip3 install -r requirements.txt
 ```
 
-* **Tesseract:** Generates text from images, such as the screenshots in the PDF.
-* **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
-* **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
-* **OpenCV:** Analyzes image contours, used to detect graphs so they don't interfere with the text generation.
 </details>
 
 <details>
@@ -44,12 +40,6 @@ winget install -e --id UB-Mannheim.TesseractOCR
 
 pip3 install -r requirements.txt
 ```
-
-* **Tesseract:** Generates text from images, such as the screenshots in the PDF.
-* **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
-* **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
-* **OpenCV:** Analyzes image contours, used to detect graphs so they don't interfere with the text generation.
-
 <br>
 
 Important Post-Installation Setup:
@@ -66,8 +56,19 @@ If the "tesseract --version" command does not work, you must manually add the in
 </div>
 
 <b>*Also be sure to uncomment line 21 in main.py*</b>
+
+---
 </details>
 
+<br>
+<b><u>Libraries:</b></u>
+
+* **PyMuPDF:** Imported as fitz. Used for loading, parsing, and rendering the PDF files.
+* **pytesseract:** Used to perform OCR (Optical Character Recognition) on the extracted PDF pages.
+* **Pillow:** Imported as PIL. Used for image manipulation, scaling, and handling image data for the Tkinter UI (ImageTk).
+opencv-python: Imported as cv2. Used for image preprocessing, thresholding, and dynamic chart redaction before OCR.
+* **numpy:** Imported as np. Used alongside OpenCV for matrix and array operations during image processing.
+* **reportlab:** Used to generate the PDF export in the review module, translating Tkinter GUI text formatting into a structured document.
 
 ---
 
