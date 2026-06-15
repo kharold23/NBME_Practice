@@ -9,6 +9,8 @@ import math
 import fitz  # PyMuPDF
 import pytesseract # Requires: pip install pytesseract
 from PIL import Image, ImageTk, ImageEnhance, ImageOps
+import cv2
+import numpy as np
 
 # ==========================================
 # CODER CONFIGURATION
@@ -474,15 +476,8 @@ class NBMESimulatorApp:
 
     def parse_text_to_questions(self, raw_pages):
         parsed_questions = []
-        
+        options = []
         inverted_q_remaining = 0
-        
-        def sanitize_text(t):
-            if not t: return ""
-            # Eliminates strange internal spacing/justification by splitting lines and merging with a single space
-            lines = [line.strip() for line in t.split('\n') if line.strip()]
-            condensed = " ".join(lines)
-            return re.sub(r'\s+', ' ', condensed).strip()
 
         for page_data in raw_pages:
             page_text = page_data["text"]
@@ -555,6 +550,38 @@ class NBMESimulatorApp:
         img = img.crop(crop_box)
         return img.convert("RGB")
 
+    def redact_charts_dynamically(self, pil_image):
+        # Convert PIL Image to OpenCV format (BGR)
+        img_array = np.array(pil_image.convert('RGB'))
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        
+        # Convert to grayscale for detection
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        
+        # Threshold: Adjust the '200' if your charts are faint or have noisy backgrounds
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Get image dimensions to calculate the max size of the page
+        h_img, w_img = img_bgr.shape[:2]
+        page_area = h_img * w_img
+
+        # Tune this number: 
+        min_chart_area = 100000 
+        # Don't redact anything that covers more than 80% of the page
+        max_chart_area = page_area * 0.8
+        
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            area = w * h
+            if min_chart_area < area < max_chart_area:
+                cv2.rectangle(img_bgr, (x, y), (x+w, y+h), (0, 0, 0), -1)
+                
+        # Convert back to PIL
+        return Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+
     def load_pdf(self):
         file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
@@ -586,25 +613,37 @@ class NBMESimulatorApp:
                 self.root.update() # Force the GUI to redraw/refresh
                 # -----------------
 
+                # Generate original pixmap (Keep this for the GUI/Display)
+                mat = fitz.Matrix(2.0, 2.0)
                 page = doc.load_page(page_num)
-
-                # Generate visuals for display and processing
-                mat = fitz.Matrix(2.0, 2.0)  
                 pix = page.get_pixmap(matrix=mat)
                 mode = "RGBA" if pix.alpha else "RGB"
                 raw_img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
                 
-                # Preprocess for better OCR detection
-                proc_img = self.preprocess_image(raw_img)
+                # 1. CREATE REDACTED VERSION FOR OCR
+                # This creates a copy that has black boxes where charts were
+                redacted_img = self.redact_charts_dynamically(raw_img)
+
+                # Create a folder for debugging if it doesn't exist
+                if not os.path.exists("debug_output"):
+                    os.makedirs("debug_output")
+
+                # For debugging
+                # file_name = f"debug_output/page_{page_num + 1}_redacted.png"
+                # redacted_img.save(file_name)
                 
-                # Run through Tesseract
+                # 2. PREPROCESS THE REDACTED IMAGE
+                # Pass the redacted image into your existing preprocessing function
+                proc_img = self.preprocess_image(redacted_img)
+                
+                # 3. RUN OCR
                 config = '--psm 6'
                 text = pytesseract.image_to_string(proc_img, config=config)
 
+                # 4. STORE BOTH
                 raw_pages.append({
                     "text": text, 
-                    "image": raw_img,
-                    "proc_image": proc_img,
+                    "image": raw_img, # This stays 'clean' for the user to see
                     "page_num": page_num + 1
                 })
 

@@ -23,13 +23,13 @@ bash
 
 ```bash
 brew install tesseract
-pip3 install pytesseract PyMuPDF Pillow PyPDF2
+pip3 install -r requirements.txt
 ```
 
-* **Tesseract:** Used to pull text from the PDF
+* **Tesseract:** Generates text from images, such as the screenshots in the PDF.
 * **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
 * **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
-* **PyPDF2:** Used as a fallback and text-extraction utility.
+* **OpenCV:** Analyzes image contours, used to detect graphs so they don't interfere with the text generation.
 
 ---
 
