@@ -763,51 +763,93 @@ class NBMESimulatorApp:
                 
         return parsed_questions
 
-    def preprocess_image(self, img):
+    def preprocess_for_ocr(self, img, page_num=None):
         """
-        Cleans the image by washing out light gray artifacts (like checkboxes)
-        and enhancing text contrast for OCR.
+        1. Dynamically crops out blue headers/footers.
+        2. Redacts large photos/charts using a Mid-Tone mask to prevent OCR artifacts.
+        3. Washes out light gray backgrounds for clean text reading.
         """
-        img = img.convert("L")  # Convert to Grayscale
-        # Force pixels > 120 (light gray) to 255 (pure white)
-        img = img.point(lambda p: 255 if p > 120 else p)
-        width, height = img.size
-        crop_margin = 70
-        crop_box = (0, crop_margin, width, height - crop_margin)
-        img = img.crop(crop_box)
-        return img.convert("RGB")
+        # ==========================================
+        # STEP 1: DYNAMIC CROPPING (Remove Headers)
+        # ==========================================
+        img_array = np.array(img.convert('RGB'))
+        gray_crop = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        
+        # Threshold: White stays white, dark blue becomes black
+        _, thresh_crop = cv2.threshold(gray_crop, 200, 255, cv2.THRESH_BINARY)
+        contours_crop, _ = cv2.findContours(thresh_crop, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours_crop:
+            largest_contour = max(contours_crop, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            width, height = img.size
+            img = img.crop((0, y, width, y + h))
 
-    def redact_charts_dynamically(self, pil_image):
-        # Convert PIL Image to OpenCV format (BGR)
-        img_array = np.array(pil_image.convert('RGB'))
-        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        # ==========================================
+        # STEP 2: DYNAMIC CHART REDACTION (Updated)
+        # ==========================================
+
+        crop_array = np.array(img.convert('RGB'))
+        img_bgr = cv2.cvtColor(crop_array, cv2.COLOR_RGB2BGR)
         
         # Convert to grayscale for detection
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         
-        # Threshold: Adjust the '200' if your charts are faint or have noisy backgrounds
-        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        # 1. Apply a Gaussian blur to smooth out text and minor noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
-        # Find contours
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 2. Canny Edge Detection
+        # Finds boundaries based on gradients. (30, 100) are low thresholds to catch faint edges.
+        edges = cv2.Canny(blurred, 20, 80)
+        
+        # 3. Dilation
+        # Thicken the detected edges to close gaps, creating a solid boundary for the contour
+        kernel = np.ones((5, 5), np.uint8)
+        connected_edges = cv2.dilate(edges, kernel, iterations=2)
+        
+        # Find contours using the connected edges
+        contours, _ = cv2.findContours(connected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         # Get image dimensions to calculate the max size of the page
         h_img, w_img = img_bgr.shape[:2]
         page_area = h_img * w_img
 
-        # Tune this number: 
-        min_chart_area = 100000 
-        # Don't redact anything that covers more than 80% of the page
+        # Don't redact anything that covers more than 80% or less than 30% of the page 
+        min_chart_area = page_area * 0.1
         max_chart_area = page_area * 0.8
         
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
             if min_chart_area < area < max_chart_area:
-                cv2.rectangle(img_bgr, (x, y), (x+w, y+h), (0, 0, 0), -1)
-                
-        # Convert back to PIL
-        return Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+                cv2.rectangle(img_bgr, (x-1, y-1), (x+w+2, y+h+2), (255, 255, 255), -1)
+
+        # ==========================================
+        # STEP 2.5: DEBUG SAVE (Post-Redaction Snapshot)
+        # ==========================================
+        # Convert the modified BGR array back to an RGB PIL Image for saving
+        # debug_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+        
+        # try:
+        #     debug_dir = "debug_output"
+        #     if not os.path.exists(debug_dir):
+        #         os.makedirs(debug_dir)
+        #     p_str = f"page_{page_num}" if page_num is not None else "test"
+        #     # Saved as _redacted to distinguish it clearly
+        #     debug_pil.save(os.path.join(debug_dir, f"{p_str}_redacted.png")) 
+        # except Exception as e:
+        #     print(f"Debug save failed: {e}")
+
+        # ==========================================
+        # STEP 3: CONTRAST ENHANCEMENT FOR OCR
+        # ==========================================
+        final_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)).convert("L")
+        
+        # Wash out faint artifacts to pure white, keep text dark
+        final_pil = final_pil.point(lambda p: 255 if p > 120 else p)
+        processed_rgb = final_pil.convert("RGB")
+            
+        return processed_rgb
 
     def load_pdf(self):
         file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
@@ -846,20 +888,15 @@ class NBMESimulatorApp:
                 pix = page.get_pixmap(matrix=mat)
                 mode = "RGBA" if pix.alpha else "RGB"
                 raw_img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                
-                # 1. CREATE REDACTED VERSION FOR OCR
-                # This creates a copy that has black boxes where charts were
-                redacted_img = self.redact_charts_dynamically(raw_img)
 
-                # 2. PREPROCESS THE REDACTED IMAGE
-                # Pass the redacted image into your existing preprocessing function
-                proc_img = self.preprocess_image(redacted_img)
+                # 1. PREPROCESS & REDACT FOR OCR
+                final_img = self.preprocess_for_ocr(raw_img, page_num)
                 
-                # 3. RUN OCR
+                # 2. RUN OCR
                 config = '--psm 6'
-                text = pytesseract.image_to_string(proc_img, config=config)
+                text = pytesseract.image_to_string(final_img, config=config)
 
-                # 4. STORE BOTH
+                # 3. STORE BOTH
                 raw_pages.append({
                     "text": text, 
                     "image": raw_img, # This stays 'clean' for the user to see
