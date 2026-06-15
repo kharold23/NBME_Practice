@@ -735,7 +735,7 @@ class NBMESimulatorApp:
 
                     answers_block = clean_text[split_point.start():match.start()]
                     options_messy = re.split(r'(?=[A-Z]\))', answers_block)
-                    options = [item.strip() for item in options_messy[1:]]
+                    options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                     options.sort()
 
                     if options:
@@ -752,10 +752,10 @@ class NBMESimulatorApp:
             if split_point:
                 q_text = clean_text[:split_point.start()]
                 q_text = q_text.replace('\n', ' ')
-                answers_block = clean_text[split_point.start():]
 
+                answers_block = clean_text[split_point.start():]
                 options_messy = re.split(r'(?=[A-Z]\))', answers_block)
-                options = [item.strip() for item in options_messy[1:]]
+                options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                 options.sort()
 
             if options:
