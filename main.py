@@ -22,14 +22,18 @@ LAB_VALUES_PDF_PATH = "lab_values_reference.pdf"
 # ==========================================
 
 class Question:
-    def __init__(self, root, number, text, options, image=None, inverted=False, instructions=""):
-        self.number = number
+    def __init__(self, root, text, options, image=None, inverted=False, instructions=""):
         self.text = text
         self.options = options
         self.selected_option = tk.StringVar(master=root, value="")
         self.image = image
         self.inverted = inverted
         self.instructions = instructions
+        
+        # Track visual state
+        self.highlights_top = []
+        self.highlights_bottom = []
+        self.crossed_out_options = set()
 
 class NBMESimulatorApp:
     def __init__(self, root):
@@ -66,6 +70,21 @@ class NBMESimulatorApp:
         
         self.create_widgets()
         self.update_ui()
+
+    def save_current_state(self):
+        """Saves highlights and strike-outs to the current question object before navigating away."""
+        if not self.questions: return
+        q = self.questions[self.current_index]
+
+        # Save Text Highlights (Convert Tkinter index objects to strings)
+        q.highlights_top = [str(idx) for idx in self.text_question.tag_ranges("highlight")]
+        q.highlights_bottom = [str(idx) for idx in self.text_question_bottom.tag_ranges("highlight")]
+
+        # Save Radiobutton Strike-outs
+        q.crossed_out_options.clear()
+        for i, rb in enumerate(self.radio_buttons):
+            if getattr(rb, 'is_crossed_out', False):
+                q.crossed_out_options.add(i)
 
     def create_widgets(self):
         # --- Top Bar ---
@@ -397,6 +416,7 @@ class NBMESimulatorApp:
         self.start_timer()
 
     def enter_review_mode(self):
+        self.save_current_state()
         self.review_mode = True
         self.timer_running = False
         if self.timer_job:
@@ -449,6 +469,7 @@ class NBMESimulatorApp:
         if not self.questions: return
         if action == "Next":
             if self.current_index < len(self.questions) - 1:
+                self.save_current_state() # Add here
                 self.current_index += 1
                 self.update_ui()
             else:
@@ -457,6 +478,7 @@ class NBMESimulatorApp:
                         self.enter_review_mode()
         elif action == "Previous":
             if self.current_index > 0:
+                self.save_current_state() # Add here
                 self.current_index -= 1
                 self.update_ui()
         elif action == "Pause":
@@ -574,6 +596,7 @@ class NBMESimulatorApp:
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
     def goto_question(self, index, review_window):
+        self.save_current_state() # Add this at the top
         self.current_index = index
         self.update_ui()
         review_window.destroy()
@@ -619,6 +642,15 @@ class NBMESimulatorApp:
             self.text_question.insert("1.0", q.text)
             self.text_question.pack(anchor="w", fill=tk.X, pady=(0, 20))
             self.options_frame.pack(anchor="w", fill=tk.X)
+            
+        # --- Restore Text Highlights ---
+        if hasattr(q, 'highlights_top') and q.highlights_top:
+            for i in range(0, len(q.highlights_top), 2):
+                self.text_question.tag_add("highlight", q.highlights_top[i], q.highlights_top[i+1])
+
+        if q.inverted and hasattr(q, 'highlights_bottom') and q.highlights_bottom:
+            for i in range(0, len(q.highlights_bottom), 2):
+                self.text_question_bottom.tag_add("highlight", q.highlights_bottom[i], q.highlights_bottom[i+1])
         
         # 4. Finalize text sizing
         self.root.update_idletasks() 
@@ -648,15 +680,23 @@ class NBMESimulatorApp:
         # Calculate initial wraplength based on current left_panel size
         initial_wrap_width = max(100, self.left_panel.winfo_width() - 20)
         
-        for opt in q.options:
+        for i, opt in enumerate(q.options):
             rb = tk.Radiobutton(self.options_frame, text=opt, 
                                 variable=q.selected_option, value=opt,
-                                bg=self.bg_white, font=self.base_font, 
+                                bg=self.bg_white, fg="black", font=self.base_font, 
+                                disabledforeground="black", # Prevents text from graying out
                                 activebackground=self.bg_white, highlightthickness=0, 
                                 state=rb_state, justify=tk.LEFT, wraplength=initial_wrap_width)
+            
+            # Restore strikeout state
+            if hasattr(q, 'crossed_out_options') and i in q.crossed_out_options:
+                rb.is_crossed_out = True
+                rb.configure(font=self.strike_font)
+            else:
+                rb.is_crossed_out = False 
+            
             rb.pack(anchor="w", pady=5)
             self._bind_mousewheel(rb)
-            rb.is_crossed_out = False 
             rb.bind("<Alt-Button-1>", self.toggle_strikeout)
             rb.bind("<Option-Button-1>", self.toggle_strikeout)
             self.radio_buttons.append(rb)
@@ -690,7 +730,6 @@ class NBMESimulatorApp:
                     instructions = i_text.replace('\n', ' ')
                     match = re.search(r'^(\d+)\.', clean_text, re.MULTILINE)
                     if match:
-                        q_num = int(match.group(1))
                         q_text = clean_text[match.start():]
                         q_text = q_text.replace('\n', ' ')
 
@@ -700,15 +739,13 @@ class NBMESimulatorApp:
                     options.sort()
 
                     if options:
-                        parsed_questions.append(Question(self.root, q_num, q_text, options, image=page_image, inverted=True, instructions=instructions))
+                        parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=True, instructions=instructions))
                 
                 inverted_q_remaining -= 1
                 continue
             
             # --- Standard Format Path ---
             match = re.search(r'^(\d+)\.', clean_text, re.DOTALL)
-            if match:
-                q_num = int(match.group(1))
             
             # Split point: The first instance of "A)"
             split_point = re.search(r'A\)', clean_text)
@@ -722,7 +759,7 @@ class NBMESimulatorApp:
                 options.sort()
 
             if options:
-                parsed_questions.append(Question(self.root, q_num, q_text, options, image=page_image, inverted=False))
+                parsed_questions.append(Question(self.root,q_text, options, image=page_image, inverted=False))
                 
         return parsed_questions
 
