@@ -10,16 +10,17 @@ For suggestions on how to improve, feel free to GroupMe message or email me at k
 
 This application requires **Python 3.x**. To run the code, you will need to install a few third-party Python libraries that handle PDF extraction and image rendering.
 
-Open your terminal or command prompt and run the following commands:
-
 <details>
-  <summary>If you need to install Homebrew</summary>
+  <summary><b><u>MacOS Users</b></u>
+  </summary>
+  First install Homebrew. Open your terminal or command prompt and run the following commands:
 
-```bash
+  ```bash
 bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
-</details>
+
+Then install the required libraries to run the program:
 
 ```bash
 brew install tesseract
@@ -30,6 +31,43 @@ pip3 install -r requirements.txt
 * **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
 * **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
 * **OpenCV:** Analyzes image contours, used to detect graphs so they don't interfere with the text generation.
+</details>
+
+<details>
+  <summary><b><u>Windows Users</b></u>
+  </summary>
+
+Open your terminal or command prompt and run the following commands:
+
+```bash
+winget install -e --id UB-Mannheim.TesseractOCR
+
+pip3 install -r requirements.txt
+```
+
+* **Tesseract:** Generates text from images, such as the screenshots in the PDF.
+* **PyMuPDF (`fitz`):** Used to render high-quality images of the PDF pages for the visual preview.
+* **Pillow (`PIL`):** Used to handle and resize the image previews inside the Tkinter application.
+* **OpenCV:** Analyzes image contours, used to detect graphs so they don't interfere with the text generation.
+
+<br>
+
+Important Post-Installation Setup:
+<div style="margin-left: 30px;">
+If you are using Tesseract with Python (e.g., via the pytesseract library), you often need to ensure the system knows where the executable is located if it wasn't added to your PATH automatically.
+<br><br>
+By default, it usually installs to C:\Program Files\Tesseract-OCR\tesseract.exe.
+<br><br>
+
+If the "tesseract --version" command does not work, you must manually add the installation folder to your Windows Environment:
+* Search for "Edit the system environment variables" in your Windows Start menu.
+* Click Environment Variables > System variables > Path > Edit > New. Then paste the path to your Tesseract folder (e.g., C:\Program Files\Tesseract-OCR).
+* Click OK on all windows.
+</div>
+
+<b>*Also be sure to uncomment line 21 in main.py*</b>
+</details>
+
 
 ---
 
