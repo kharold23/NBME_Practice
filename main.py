@@ -11,6 +11,14 @@ import pytesseract # Requires: pip install pytesseract
 from PIL import Image, ImageTk, ImageEnhance, ImageOps
 import cv2
 import numpy as np
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 # ==========================================
 # CODER CONFIGURATION
@@ -569,6 +577,11 @@ class NBMESimulatorApp:
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
         tk.Label(self.review_window, text=mode_text, bg=self.bg_white, font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
         
+        export_btn = tk.Button(self.review_window, text="Export Exam (PDF)", 
+                               command=self.export_to_pdf, bg=self.bg_white, fg=self.bg_blue, 
+                               font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
+        export_btn.pack(pady=(0, 10))
+
         canvas = tk.Canvas(self.review_window, bg=self.bg_white, borderwidth=0)
         scrollbar = ttk.Scrollbar(self.review_window, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg=self.bg_white)
@@ -601,6 +614,118 @@ class NBMESimulatorApp:
         self.update_ui()
         review_window.destroy()
         self.review_window = None
+
+    def _get_formatted_text(self, raw_text, highlight_ranges):
+        """Helper to safely map Tkinter highlight indices to ReportLab HTML-like tags."""
+        temp_text = tk.Text(self.root)
+        temp_text.insert("1.0", raw_text)
+        
+        # Apply the saved highlight indices
+        if highlight_ranges:
+            for i in range(0, len(highlight_ranges), 2):
+                temp_text.tag_add("highlight", highlight_ranges[i], highlight_ranges[i+1])
+
+        parts = []
+        # Dump the text and tags sequentially
+        for key, value, index in temp_text.dump("1.0", "end"):
+            if key == "tagon" and value == "highlight":
+                parts.append('<font backColor="yellow">')
+            elif key == "tagoff" and value == "highlight":
+                parts.append('</font>')
+            elif key == "text":
+                # Escape special HTML characters to prevent ReportLab crashes
+                clean_text = value.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                clean_text = clean_text.replace('\n', '<br/>')
+                parts.append(clean_text)
+
+        temp_text.destroy()
+        
+        res = "".join(parts)
+        # Strip trailing newline artifact from Tkinter dump
+        if res.endswith("<br/>"): res = res[:-5] 
+        return res
+
+    def export_to_pdf(self):
+        """Generates a comprehensive PDF report of the current exam state."""
+        if not self.questions:
+            messagebox.showwarning("Empty", "No questions to export.")
+            return
+            
+        if not REPORTLAB_AVAILABLE:
+            messagebox.showerror("Missing Dependency", "ReportLab is required for this feature.\nPlease run: pip install reportlab")
+            return
+
+        # Ensure the current question's state is saved before exporting
+        self.save_current_state()
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Save Exam Report"
+        )
+        if not file_path: return
+
+        try:
+            doc = SimpleDocTemplate(file_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+            styles = getSampleStyleSheet()
+            story = []
+
+            # Custom Styles
+            title_style = styles['Title']
+            header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading2'], textColor=colors.HexColor("#0a2240"))
+            flagged_style = ParagraphStyle('FlaggedStyle', parent=styles['Heading2'], textColor=colors.red)
+            body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=11, leading=14, spaceAfter=10)
+            
+            story.append(Paragraph("<b>NBME Self-Assessment Review Report</b>", title_style))
+            story.append(Spacer(1, 20))
+
+            for i, q in enumerate(self.questions):
+                # 1. Title & Flag Status
+                is_flagged = i in self.marked_questions
+                h_style = flagged_style if is_flagged else header_style
+                title_text = f"Question {i + 1} [FLAGGED]" if is_flagged else f"Question {i + 1}"
+                story.append(Paragraph(f"<b>{title_text}</b>", h_style))
+                
+                # 2. Extract and format text with highlights
+                if q.inverted:
+                    inst_formatted = self._get_formatted_text(q.instructions, q.highlights_top)
+                    q_formatted = self._get_formatted_text(q.text, q.highlights_bottom)
+                    story.append(Paragraph(inst_formatted, body_style))
+                    story.append(Paragraph(q_formatted, body_style))
+                else:
+                    q_formatted = self._get_formatted_text(q.text, q.highlights_top)
+                    story.append(Paragraph(q_formatted, body_style))
+                    
+                story.append(Spacer(1, 5))
+
+                # 3. Process Options
+                selected_val = q.selected_option.get()
+                for j, opt in enumerate(q.options):
+                    opt_clean = opt.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    
+                    is_selected = (selected_val == opt)
+                    is_crossed = j in getattr(q, 'crossed_out_options', set())
+                    
+                    prefix = "[ X ]" if is_selected else "[   ]"
+                    if is_crossed:
+                        opt_clean = f"<strike>{opt_clean}</strike>"
+                        
+                    color_tag = "green" if is_selected else "gray" if is_crossed else "black"
+                    
+                    option_line = f"<font color='{color_tag}'><b>{prefix}</b> {opt_clean}</font>"
+                    story.append(Paragraph(option_line, body_style))
+
+                story.append(Spacer(1, 15))
+                # Add a light separator line between questions
+                story.append(Paragraph("<font color='#cccccc'>________________________________________________________________________</font>", body_style))
+                story.append(Spacer(1, 15))
+
+            # Build PDF
+            doc.build(story)
+            messagebox.showinfo("Success", f"Report successfully exported to:\n{file_path}")
+
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to generate PDF:\n{e}")
 
     def update_ui(self):
         # 1. Handle empty state
