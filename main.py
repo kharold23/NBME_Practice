@@ -50,6 +50,12 @@ class NBMESimulatorApp:
         self.review_window = None
         self.full_img_win = None
         
+        # New State for Lab Values
+        self.lab_values_open = False
+        self.lab_values_images = []
+        self.lab_resize_job = None      
+        self.last_canvas_width = 0      
+        
         self.bg_blue = "#0a2240"
         self.text_white = "#ffffff"
         self.bg_bottom = "#f0f0f0" 
@@ -104,33 +110,45 @@ class NBMESimulatorApp:
         self.main_container = tk.Frame(self.root, bg=self.bg_white)
         self.main_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        self.main_canvas = tk.Canvas(self.main_container, bg=self.bg_white, highlightthickness=0)
+        # Added yscrollincrement to enable high-fidelity smooth scrolling
+        self.main_canvas = tk.Canvas(self.main_container, bg=self.bg_white, highlightthickness=0, yscrollincrement="15")
         self.main_scrollbar = ttk.Scrollbar(self.main_container, orient="vertical", command=self.main_canvas.yview)
 
         self.scrollable_main_frame = tk.Frame(self.main_canvas, bg=self.bg_white)
         
         self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_main_frame, anchor="nw")
-        self.scrollable_main_frame.bind("<Configure>", lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all")))
+        
+        # Replaced lambda binds with explicit methods to enforce full height constraints
+        self.scrollable_main_frame.bind("<Configure>", self._on_scrollable_frame_configure)
+        self.main_canvas.bind('<Configure>', self._on_main_canvas_configure)
+        
         self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
 
         self.main_canvas.pack(side="left", fill="both", expand=True, padx=(40, 0), pady=30)
         self.main_scrollbar.pack(side="right", fill="y")
         
-        self.main_canvas.bind('<Configure>', lambda e: self.main_canvas.itemconfig(self.canvas_window, width=e.width))
-
         self._bind_mousewheel(self.main_canvas)
         self._bind_mousewheel(self.scrollable_main_frame)
 
+        # --- Grid Layout Configuration ---
         self.content_frame = tk.Frame(self.scrollable_main_frame, bg=self.bg_white)
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
         
+        # Configure columns and ENFORCE row stretch so the right panel touches the bottom
+        self.content_frame.columnconfigure(0, weight=70, uniform="panels")
+        self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+        self.content_frame.rowconfigure(0, weight=1) 
+        
         self.left_panel = tk.Frame(self.content_frame, bg=self.bg_white)
-        self.left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.left_panel.grid(row=0, column=0, sticky="nsew")
         self._bind_mousewheel(self.left_panel)
         
-        self.right_panel = tk.Frame(self.content_frame, bg=self.bg_white, width=320)
-        self.right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(20, 20))
+        # Dynamically adjust text wrapping for radio buttons when layout changes
+        self.left_panel.bind("<Configure>", self.on_left_panel_configure)
+        
+        self.right_panel = tk.Frame(self.content_frame, bg=self.bg_white)
+        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(20, 20))
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
@@ -160,6 +178,35 @@ class NBMESimulatorApp:
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
         self._bind_mousewheel(self.lbl_preview)
 
+        # --- Lab Values Embed Container ---
+        self.lab_values_container = tk.Frame(self.right_panel, bg=self.bg_white)
+        # It is hidden initially, will be packed in open_lab_values()
+        
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.bg_blue, fg=self.text_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
+        
+        # Added yscrollincrement to enable high-fidelity smooth scrolling
+        self.lab_canvas = tk.Canvas(self.lab_values_container, bg=self.bg_white, highlightthickness=1, highlightbackground="#cccccc", yscrollincrement="15")
+        self.lab_scrollable_frame = tk.Frame(self.lab_canvas, bg=self.bg_white)
+        
+        # Create Vertical Scrollbar to support zoomed-in content
+        self.lab_scrollbar = ttk.Scrollbar(self.lab_values_container, orient="vertical", command=self.lab_canvas.yview)
+        self.lab_canvas.configure(yscrollcommand=self.lab_scrollbar.set,)
+
+        # Store the window ID so we can dynamically center it later
+        self.lab_window_id = self.lab_canvas.create_window((0, 0), window=self.lab_scrollable_frame, anchor="n")
+        self.lab_scrollable_frame.bind("<Configure>", lambda e: self.lab_canvas.configure(scrollregion=self.lab_canvas.bbox("all")))
+
+        # Proper packing order to ensure scrollbars map to the edges
+        self.lab_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.lab_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Bind the canvas resize event to our debounce re-renderer
+        self.lab_canvas.bind("<Configure>", self.on_lab_canvas_resize)
+        
+        # Use dedicated lab mousewheel binding here
+        self._bind_lab_mousewheel(self.lab_canvas)
+        self._bind_lab_mousewheel(self.lab_scrollable_frame)
+
         # --- Bottom Bar ---
         self.bottom_frame = tk.Frame(self.root, bg=self.bg_bottom, height=60)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
@@ -175,6 +222,80 @@ class NBMESimulatorApp:
                             bg=self.bg_bottom, fg=self.bg_blue, relief=tk.FLAT, font=("Arial", 10, "bold"))
             btn.pack(side=tk.RIGHT, padx=10, pady=15)
 
+    def _on_main_canvas_configure(self, event):
+        """Forces the content window to stretch to the bottom if it's shorter than the visible canvas."""
+        self.main_canvas.itemconfig(self.canvas_window, width=event.width)
+        req_height = self.scrollable_main_frame.winfo_reqheight()
+        if req_height < event.height:
+            self.main_canvas.itemconfig(self.canvas_window, height=event.height)
+        else:
+            self.main_canvas.itemconfig(self.canvas_window, height="")
+
+    def _on_scrollable_frame_configure(self, event):
+        """Updates scroll region and enforces height constraints dynamically."""
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        canvas_height = self.main_canvas.winfo_height()
+        if event.height < canvas_height:
+            self.main_canvas.itemconfig(self.canvas_window, height=canvas_height)
+        else:
+            self.main_canvas.itemconfig(self.canvas_window, height=event.height)
+
+    def on_left_panel_configure(self, event):
+        """Dynamically adjusts the text wrapping length of radio buttons to prevent overlap."""
+        wrap_width = event.width - 20 
+        if wrap_width > 50:
+            for rb in self.radio_buttons:
+                try:
+                    rb.config(wraplength=wrap_width)
+                except tk.TclError:
+                    pass
+
+    def on_lab_canvas_resize(self, event):
+        """Listens to the canvas resizing and triggers a debounced re-render of the PDF."""
+        if not self.lab_values_open:
+            return
+            
+        new_width = event.width
+        # Update centering immediately while dragging window
+        self.lab_canvas.coords(self.lab_window_id, new_width / 2, 0)
+        
+        # Ignore minor pixel fluctuations to prevent endless loops
+        if abs(self.last_canvas_width - event.width) < 15:
+            return
+            
+        self.last_canvas_width = event.width
+        
+        # Cancel the previous pending render job if the user is still dragging the window
+        if self.lab_resize_job is not None:
+            self.root.after_cancel(self.lab_resize_job)
+            
+        # Schedule a new render job 400ms after the user stops dragging
+        self.lab_resize_job = self.root.after(400, self.reload_lab_values_pdf)
+
+    def reload_lab_values_pdf(self):
+        """Clears the existing images and forces a fresh render at the new width."""
+        if not self.lab_values_open:
+            return
+            
+        # Destroy the old labels to prevent memory bloat
+        for widget in self.lab_scrollable_frame.winfo_children():
+            widget.destroy()
+            
+        self.lab_values_images.clear()
+        self.load_lab_values_pdf()
+        self.lab_resize_job = None
+
+    def _get_scroll_delta(self, event):
+        """Helper to calculate smooth scroll delta across Mac, Windows, and Linux."""
+        if event.num == 4:
+            return -4
+        elif event.num == 5:
+            return 4
+        elif sys.platform == "darwin":
+            return int(-event.delta)
+        else:
+            return int(-event.delta / 120) * 4
+
     def _bind_mousewheel(self, widget):
         widget.bind("<MouseWheel>", self._on_mousewheel)
         widget.bind("<Button-4>", self._on_mousewheel)
@@ -182,14 +303,24 @@ class NBMESimulatorApp:
 
     def _on_mousewheel(self, event):
         bbox = self.main_canvas.bbox("all")
-        # Prevents scrolling if content is smaller than window
         if not bbox or bbox[3] <= self.main_canvas.winfo_height():
-            return
+            return "break"
             
-        if event.num == 4 or event.delta > 0:
-            self.main_canvas.yview_scroll(-1, "units")
-        elif event.num == 5 or event.delta < 0:
-            self.main_canvas.yview_scroll(1, "units")
+        self.main_canvas.yview_scroll(self._get_scroll_delta(event), "units")
+        return "break" 
+
+    def _bind_lab_mousewheel(self, widget):
+        widget.bind("<MouseWheel>", self._on_lab_mousewheel)
+        widget.bind("<Button-4>", self._on_lab_mousewheel)
+        widget.bind("<Button-5>", self._on_lab_mousewheel)
+
+    def _on_lab_mousewheel(self, event):
+        bbox = self.lab_canvas.bbox("all")
+        if not bbox or bbox[3] <= self.lab_canvas.winfo_height():
+            return "break"
+            
+        self.lab_canvas.yview_scroll(self._get_scroll_delta(event), "units")
+        return "break" 
     
     def show_full_image(self, event):
         if not self.questions: return
@@ -336,15 +467,70 @@ class NBMESimulatorApp:
             self.open_review_window()
 
     def open_lab_values(self):
-        if os.path.exists(LAB_VALUES_PDF_PATH):
-            try:
-                if sys.platform == "win32": os.startfile(LAB_VALUES_PDF_PATH)
-                elif sys.platform == "darwin": subprocess.call(["open", LAB_VALUES_PDF_PATH])
-                else: subprocess.call(["xdg-open", LAB_VALUES_PDF_PATH])
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not open file: {e}")
-        else:
+        """Toggles the inline Lab Values PDF Panel"""
+        if not os.path.exists(LAB_VALUES_PDF_PATH):
             messagebox.showerror("File Not Found", f"Could not locate Lab Values at:\n{LAB_VALUES_PDF_PATH}")
+            return
+
+        if self.lab_values_open:
+            # Hide the panel
+            self.lab_values_container.pack_forget()
+            self.lab_values_open = False
+            # Revert to 70/30 split
+            self.content_frame.columnconfigure(0, weight=70, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+        else:
+            # Show the panel
+            self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
+            self.lab_values_open = True
+            # Update to 50/50 split
+            self.content_frame.columnconfigure(0, weight=40, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=60, uniform="panels")
+            
+            # Force Tkinter to recalculate the GUI layout to physically reflect the split 
+            self.root.update_idletasks() 
+            
+            # Establish baseline width
+            self.last_canvas_width = self.lab_canvas.winfo_width()
+            
+            # Load the PDF images if they haven't been loaded yet
+            if not self.lab_values_images:
+                self.load_lab_values_pdf()
+
+    def load_lab_values_pdf(self):
+        """Renders the PDF pages to ImageTk objects to display in the Lab Values panel."""
+        try:
+            doc = fitz.open(LAB_VALUES_PDF_PATH)
+            
+            # Dynamically fetch the real width of the canvas, subtracting ~25px for the scrollbar
+            canvas_width = self.lab_canvas.winfo_width()
+            target_width = max(200, canvas_width - 25) 
+            
+            # Dynamically recenter the frame inside the canvas
+            self.lab_canvas.coords(self.lab_window_id, canvas_width / 2, 0)
+            self.lab_canvas.itemconfig(self.lab_window_id, anchor="n")
+            
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                
+                # Apply zoom factor
+                zoom = (target_width / page.rect.width) * 1.15
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat)
+                
+                mode = "RGBA" if pix.alpha else "RGB"
+                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                
+                photo = ImageTk.PhotoImage(img)
+                self.lab_values_images.append(photo) # Keep reference to avoid garbage collection
+                
+                lbl = tk.Label(self.lab_scrollable_frame, image=photo, bg="white")
+                lbl.pack(pady=5)
+                # Apply dedicated scroll binding to the rendered images
+                self._bind_lab_mousewheel(lbl)
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load inline Lab Values PDF:\n{e}")
 
     def open_review_window(self):
         if self.review_window and self.review_window.winfo_exists():
@@ -459,11 +645,15 @@ class NBMESimulatorApp:
         self.radio_buttons.clear()
         rb_state = tk.DISABLED if self.review_mode else tk.NORMAL
         
+        # Calculate initial wraplength based on current left_panel size
+        initial_wrap_width = max(100, self.left_panel.winfo_width() - 20)
+        
         for opt in q.options:
             rb = tk.Radiobutton(self.options_frame, text=opt, 
                                 variable=q.selected_option, value=opt,
                                 bg=self.bg_white, font=self.base_font, 
-                                activebackground=self.bg_white, highlightthickness=0, state=rb_state)
+                                activebackground=self.bg_white, highlightthickness=0, 
+                                state=rb_state, justify=tk.LEFT, wraplength=initial_wrap_width)
             rb.pack(anchor="w", pady=5)
             self._bind_mousewheel(rb)
             rb.is_crossed_out = False 
@@ -624,14 +814,6 @@ class NBMESimulatorApp:
                 # This creates a copy that has black boxes where charts were
                 redacted_img = self.redact_charts_dynamically(raw_img)
 
-                # Create a folder for debugging if it doesn't exist
-                if not os.path.exists("debug_output"):
-                    os.makedirs("debug_output")
-
-                # For debugging
-                # file_name = f"debug_output/page_{page_num + 1}_redacted.png"
-                # redacted_img.save(file_name)
-                
                 # 2. PREPROCESS THE REDACTED IMAGE
                 # Pass the redacted image into your existing preprocessing function
                 proc_img = self.preprocess_image(redacted_img)
