@@ -14,10 +14,11 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Unzip the Application
+    - name: Download the Application
       run: |
-        # Unzip your pre-built application into the runner's workspace
-        unzip NBME_Console.zip -d ./app_testing
+        # Download from your hosting source instead of cluttering Git history
+        curl -L -o main.zip "https://drive.google.com/file/d/1fUwfebJbgxmHM0qwKWKRt7iIkfbY-apX/view?usp=share_link"
+        unzip main.zip -d ./app_testing
         
     - name: Run Tesseract Integration Test
       run: |
