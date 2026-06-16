@@ -21,21 +21,27 @@ except ImportError:
     REPORTLAB_AVAILABLE = False
 
 def get_tesseract_cmd():
-    # If running as a frozen app (the .app bundle)
     if getattr(sys, 'frozen', False):
-        # We assume you bundled the tesseract binary inside the .app/Contents/MacOS/ folder
-        # or in a specific subfolder.
-        base_path = os.path.dirname(sys.executable)
-        tess_path = os.path.join(base_path, 'Tesseract-OCR', 'tesseract')
+        # We are running inside the bundled .app
+        # sys.executable points to: .../Contents/MacOS/YourApp
+        macos_dir = os.path.dirname(sys.executable)
+        contents_dir = os.path.dirname(macos_dir) # Moves up one level to /Contents
+        
+        # Point to the Resources folder instead
+        tess_dir = os.path.join(contents_dir, 'Resources', 'Tesseract-OCR')
+        tess_path = os.path.join(tess_dir, 'tesseract')
+        
+        # FORCE Tesseract to use the bundled language data folder
+        os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
+        
         return tess_path
     else:
-        # Standard location for Homebrew Tesseract on Mac
-        # You can check both common locations
-        possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
+        # We are running the script locally during development
+        possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract'] # '/usr/local/Cellar/tesseract/5.5.2'
         for path in possible_paths:
             if os.path.exists(path):
                 return path
-        return 'tesseract' # Fallback to looking in the system PATH
+        return 'tesseract'
 
 pytesseract.pytesseract.tesseract_cmd = get_tesseract_cmd()
 
@@ -1009,8 +1015,10 @@ class NBMESimulatorApp:
             
         return processed_rgb
 
-    def load_pdf(self):
-        file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
+    def load_pdf(self, file_path=None): # Added optional parameter
+        if not file_path:
+            # Only open the dialog if no path was provided via CLI
+            file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
             
         try:
@@ -1121,4 +1129,32 @@ class NBMESimulatorApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = NBMESimulatorApp(root)
+    
+    # Check for CLI arguments for CI/CD testing
+    if len(sys.argv) > 1:
+        # Find the PDF path in the arguments
+        pdf_args = [arg for arg in sys.argv if arg.lower().endswith('.pdf')]
+        is_test_mode = "--test" in sys.argv
+        
+        if pdf_args:
+            test_pdf_path = pdf_args[0]
+            
+            def run_automated_test():
+                print(f"Loading test file: {test_pdf_path}")
+                app.load_pdf(test_pdf_path)
+                
+                # If we successfully parsed questions, Tesseract is working
+                if app.questions:
+                    print(f"SUCCESS: Parsed {len(app.questions)} questions using Tesseract.")
+                    if is_test_mode:
+                        print("Test complete. Exiting normally.")
+                        root.destroy() # Closes the app, allowing GitHub Actions to pass
+                else:
+                    print("FAILURE: No questions parsed. Tesseract integration may have failed.")
+                    if is_test_mode:
+                        sys.exit(1) # Forces GitHub Actions to fail the workflow
+            
+            # Delay execution slightly to ensure the GUI has initialized
+            root.after(500, run_automated_test)
+
     root.mainloop()

@@ -1,0 +1,36 @@
+name: macOS Clean Room Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-bundled-app:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Unzip the Application
+      run: |
+        # Unzip your pre-built application into the runner's workspace
+        unzip NBME_Console.zip -d ./app_testing
+        
+    - name: Run Tesseract Integration Test
+      run: |
+        # Path to the executable inside the unzipped macOS app bundle
+        EXECUTABLE_PATH="./app_testing/main.app/Contents/MacOS/main"
+        
+        # Path to your test PDF inside your repository
+        TEST_PDF_PATH="TestPDF.pdf" 
+        
+        # Ensure the executable permission is intact just in case
+        chmod +x "$EXECUTABLE_PATH"
+        
+        # Execute the app natively.
+        # Because Tesseract is NOT installed on this runner, 
+        # this will only succeed if your bundled Tesseract works.
+        "$EXECUTABLE_PATH" "$TEST_PDF_PATH" --test
