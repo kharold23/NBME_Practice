@@ -75,6 +75,7 @@ class Question:
 class NBMESimulatorApp:
     def __init__(self, root):
         self.root = root
+        self.is_test_mode = False
         self.root.title("NBME Self-Assessment Simulator")
         self.root.geometry("1024x768")
         self.root.configure(bg="white")
@@ -1108,7 +1109,10 @@ class NBMESimulatorApp:
                 unparsed_str = f"Pages with no new questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
                 msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
                 
-                start_exam = messagebox.askyesno("Processing Complete", msg)
+                if self.is_test_mode:
+                    start_exam = False 
+                else:
+                    start_exam = messagebox.askyesno("Processing Complete", msg)
                 
                 if start_exam:
                     self.start_timer()
@@ -1132,10 +1136,12 @@ if __name__ == "__main__":
     
     # Check for CLI arguments for CI/CD testing
     if len(sys.argv) > 1:
-        # Find the PDF path in the arguments
         pdf_args = [arg for arg in sys.argv if arg.lower().endswith('.pdf')]
         is_test_mode = "--test" in sys.argv
         
+        # Pass the test mode state to the app
+        app.is_test_mode = is_test_mode 
+
         if pdf_args:
             test_pdf_path = pdf_args[0]
             
