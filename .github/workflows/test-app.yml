@@ -23,7 +23,7 @@ jobs:
     - name: Run Tesseract Integration Test
       run: |
         # Path to the executable inside the unzipped macOS app bundle
-        EXECUTABLE_PATH="./app_testing/main.app/Contents/MacOS/main"
+        EXECUTABLE_PATH="./app_testing/NBME_Console.app/Contents/MacOS/NBME_Console"
         
         # Path to your test PDF inside your repository
         TEST_PDF_PATH="TestPDF.pdf" 
