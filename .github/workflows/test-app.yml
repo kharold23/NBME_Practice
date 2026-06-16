@@ -2,9 +2,9 @@ name: macOS Clean Room Test
 
 on:
   push:
-    branches: [ "Mac-app" ]
+    branches: [ "Mac-App" ]
   pull_request:
-    branches: [ "Mac-app" ]
+    branches: [ "Mac-App" ]
 
 jobs:
   test-bundled-app:
