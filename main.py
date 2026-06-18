@@ -50,7 +50,7 @@ def resource_path(relative_path):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
-    except Exception:
+    except Exception:``
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
@@ -98,10 +98,9 @@ class NBMESimulatorApp:
         self.lab_resize_job = None      
         self.last_canvas_width = 0      
         
-        self.bg_blue = "#0a2240"
-        self.text_white = "#ffffff"
-        self.bg_bottom = "#f0f0f0" 
-        self.bg_white = "#ffffff"
+        self.color_blue = "#0a2240"
+        self.color_white = "#ffffff"
+        self.color_black = "#f00000"
         
         self.base_font = tkfont.Font(family="Arial", size=12)
         self.strike_font = tkfont.Font(family="Arial", size=12, overstrike=1)
@@ -126,52 +125,52 @@ class NBMESimulatorApp:
 
     def create_widgets(self):
         # --- Top Bar ---
-        self.top_frame = tk.Frame(self.root, bg=self.bg_blue, height=60)
+        self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=60)
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
         self.top_frame.pack_propagate(False)
         
-        self.left_top_frame = tk.Frame(self.top_frame, bg=self.bg_blue)
+        self.left_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.left_top_frame.pack(side=tk.LEFT, padx=10, pady=5)
         
         self.lbl_item_count = tk.Label(self.left_top_frame, text="Exam Section : Item 0 of 0", 
-                                       bg=self.bg_blue, fg=self.text_white, font=("Arial", 10, "bold"))
+                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
         self.lbl_item_count.pack(anchor="w")
         
         self.mark_var = tk.BooleanVar()
         self.chk_mark = tk.Checkbutton(self.left_top_frame, text="Mark", variable=self.mark_var, 
-                                       command=self.toggle_mark, bg=self.bg_blue, fg=self.text_white, 
-                                       selectcolor=self.bg_blue, activebackground=self.bg_blue, activeforeground=self.text_white, font=("Arial", 10, "bold"))
+                                       command=self.toggle_mark, bg=self.color_blue, fg=self.color_white, 
+                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 10, "bold"))
         self.chk_mark.pack(anchor="w")
 
-        self.center_top_frame = tk.Frame(self.top_frame, bg=self.bg_blue)
+        self.center_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.center_top_frame.pack(side=tk.LEFT, expand=True)
         
         self.lbl_title_center = tk.Label(self.center_top_frame, text="National Board of Medical Examiners", 
-                 bg=self.bg_blue, fg=self.text_white, font=("Arial", 10))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10))
         self.lbl_title_center.pack()
         
         self.lbl_subtitle_center = tk.Label(self.center_top_frame, text="PRACTICE Self-Assessment", 
-                 bg=self.bg_blue, fg=self.text_white, font=("Arial", 10, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
         self.lbl_subtitle_center.pack()
 
-        self.right_top_frame = tk.Frame(self.top_frame, bg=self.bg_blue)
+        self.right_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.right_top_frame.pack(side=tk.RIGHT, padx=10, pady=5)
         
         tk.Label(self.right_top_frame, text="Time Remaining:", 
-                 bg=self.bg_blue, fg=self.text_white, font=("Arial", 10)).pack(anchor="e")
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10)).pack(anchor="e")
         self.lbl_time_remaining = tk.Label(self.right_top_frame, text="0 hr 00 min 00 sec", 
-                 bg=self.bg_blue, fg=self.text_white, font=("Arial", 10, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
         self.lbl_time_remaining.pack(anchor="e")
 
         # --- Main Content Area (Strictly Bounded Scrollable) ---
-        self.main_container = tk.Frame(self.root, bg=self.bg_white)
+        self.main_container = tk.Frame(self.root, bg=self.color_white)
         self.main_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Added yscrollincrement to enable high-fidelity smooth scrolling
-        self.main_canvas = tk.Canvas(self.main_container, bg=self.bg_white, highlightthickness=0, yscrollincrement="15")
+        self.main_canvas = tk.Canvas(self.main_container, bg=self.color_white, highlightthickness=0, yscrollincrement="15")
         self.main_scrollbar = ttk.Scrollbar(self.main_container, orient="vertical", command=self.main_canvas.yview)
 
-        self.scrollable_main_frame = tk.Frame(self.main_canvas, bg=self.bg_white)
+        self.scrollable_main_frame = tk.Frame(self.main_canvas, bg=self.color_white)
         
         self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_main_frame, anchor="nw")
         
@@ -188,7 +187,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.scrollable_main_frame)
 
         # --- Grid Layout Configuration ---
-        self.content_frame = tk.Frame(self.scrollable_main_frame, bg=self.bg_white)
+        self.content_frame = tk.Frame(self.scrollable_main_frame, bg=self.color_white)
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
         
@@ -197,19 +196,19 @@ class NBMESimulatorApp:
         self.content_frame.columnconfigure(1, weight=30, uniform="panels")
         self.content_frame.rowconfigure(0, weight=1) 
         
-        self.left_panel = tk.Frame(self.content_frame, bg=self.bg_white)
+        self.left_panel = tk.Frame(self.content_frame, bg=self.color_white)
         self.left_panel.grid(row=0, column=0, sticky="nsew")
         self._bind_mousewheel(self.left_panel)
         
         # Dynamically adjust text wrapping for radio buttons when layout changes
         self.left_panel.bind("<Configure>", self.on_left_panel_configure)
         
-        self.right_panel = tk.Frame(self.content_frame, bg=self.bg_white)
+        self.right_panel = tk.Frame(self.content_frame, bg=self.color_white)
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(20, 20))
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.bg_white, font=("Arial", 12), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -217,33 +216,33 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.text_question)
         
         # Options Frame
-        self.options_frame = tk.Frame(self.left_panel, bg=self.bg_white)
+        self.options_frame = tk.Frame(self.left_panel, bg=self.color_white, fg=self.color_black)
         self._bind_mousewheel(self.options_frame)
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.bg_white, font=("Arial", 12), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.bg_white, fg="gray", font=("Arial", 9)).pack(side=tk.TOP, pady=(0, 5))
-        self.lbl_preview = tk.Label(self.right_panel, bg="#f0f0f0", cursor="hand2", relief=tk.RIDGE, bd=2)
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 9)).pack(side=tk.TOP, pady=(0, 5))
+        self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
         self._bind_mousewheel(self.lbl_preview)
 
         # --- Lab Values Embed Container ---
-        self.lab_values_container = tk.Frame(self.right_panel, bg=self.bg_white)
+        self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
         # It is hidden initially, will be packed in open_lab_values()
         
-        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.bg_blue, fg=self.text_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
         
         # Added yscrollincrement to enable high-fidelity smooth scrolling
-        self.lab_canvas = tk.Canvas(self.lab_values_container, bg=self.bg_white, highlightthickness=1, highlightbackground="#cccccc", yscrollincrement="15")
-        self.lab_scrollable_frame = tk.Frame(self.lab_canvas, bg=self.bg_white)
+        self.lab_canvas = tk.Canvas(self.lab_values_container, bg=self.color_white, highlightthickness=1, highlightbackground="#cccccc", yscrollincrement="15")
+        self.lab_scrollable_frame = tk.Frame(self.lab_canvas, bg=self.color_white)
         
         # Create Vertical Scrollbar to support zoomed-in content
         self.lab_scrollbar = ttk.Scrollbar(self.lab_values_container, orient="vertical", command=self.lab_canvas.yview)
@@ -265,18 +264,18 @@ class NBMESimulatorApp:
         self._bind_lab_mousewheel(self.lab_scrollable_frame)
 
         # --- Bottom Bar ---
-        self.bottom_frame = tk.Frame(self.root, bg=self.bg_bottom, height=60)
+        self.bottom_frame = tk.Frame(self.root, bg=self.color_blue, height=60)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.bottom_frame.pack_propagate(False)
         
         btn_load = tk.Button(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
-                             bg=self.bg_bottom, fg=self.bg_blue, relief=tk.FLAT, font=("Arial", 10, "bold"))
+                             bg=self.color_white, fg=self.color_black, relief=tk.FLAT, font=("Arial", 10, "bold"))
         btn_load.pack(side=tk.LEFT, padx=20, pady=15)
 
         controls = ["Next", "Previous", "Review", "Lab Values", "Calculator", "Pause"]
         for ctrl in controls:
             btn = tk.Button(self.bottom_frame, text=ctrl, command=lambda c=ctrl: self.handle_bottom_action(c),
-                            bg=self.bg_bottom, fg=self.bg_blue, relief=tk.FLAT, font=("Arial", 10, "bold"))
+                            bg=self.color_white, fg=self.color_black, relief=tk.FLAT, font=("Arial", 10, "bold"))
             btn.pack(side=tk.RIGHT, padx=10, pady=15)
 
     def _on_main_canvas_configure(self, event):
@@ -441,10 +440,10 @@ class NBMESimulatorApp:
         self.pause_window = tk.Toplevel(self.root)
         self.pause_window.title("Exam Paused")
         self.pause_window.geometry("400x200")
-        self.pause_window.configure(bg=self.bg_blue)
+        self.pause_window.configure(bg=self.color_blue)
         self.pause_window.transient(self.root)
         self.pause_window.grab_set() 
-        tk.Label(self.pause_window, text="Exam Paused", bg=self.bg_blue, fg=self.text_white, 
+        tk.Label(self.pause_window, text="Exam Paused", bg=self.color_blue, fg=self.color_white, 
                  font=("Arial", 18, "bold")).pack(pady=(50, 20))
         tk.Button(self.pause_window, text="Resume", command=self.resume_timer, 
                   bg="white", font=("Arial", 12)).pack()
@@ -601,20 +600,20 @@ class NBMESimulatorApp:
         self.review_window = tk.Toplevel(self.root)
         self.review_window.title("Review Options")
         self.review_window.geometry("700x500")
-        self.review_window.configure(bg=self.bg_white)
+        self.review_window.configure(bg=self.color_white)
         self.review_window.transient(self.root)
         
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
-        tk.Label(self.review_window, text=mode_text, bg=self.bg_white, font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
+        tk.Label(self.review_window, text=mode_text, bg=self.color_white, font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
         
         export_btn = tk.Button(self.review_window, text="Export Exam (PDF)", 
-                               command=self.export_to_pdf, bg=self.bg_white, fg=self.bg_blue, 
+                               command=self.export_to_pdf, bg=self.color_white, fg=self.color_blue, 
                                font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
         export_btn.pack(pady=(0, 10))
 
-        canvas = tk.Canvas(self.review_window, bg=self.bg_white, borderwidth=0)
+        canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0)
         scrollbar = ttk.Scrollbar(self.review_window, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg=self.bg_white)
+        scrollable_frame = tk.Frame(canvas, bg=self.color_white)
 
         scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
@@ -627,7 +626,7 @@ class NBMESimulatorApp:
         
         for i, q in enumerate(self.questions):
             is_answered = q.selected_option.get() != ""
-            bg_color = "#d4edda" if is_answered else "#f8d7da" 
+            bg_color = "#80de98" if is_answered else "#d0747c" 
             flag = " 🚩" if i in self.marked_questions else ""
             btn_text = f"#{i + 1}{flag}" 
             
@@ -838,9 +837,9 @@ class NBMESimulatorApp:
         for i, opt in enumerate(q.options):
             rb = tk.Radiobutton(self.options_frame, text=opt, 
                                 variable=q.selected_option, value=opt,
-                                bg=self.bg_white, fg="black", font=self.base_font, 
+                                bg=self.color_white, fg="black", font=self.base_font, 
                                 disabledforeground="black", # Prevents text from graying out
-                                activebackground=self.bg_white, highlightthickness=0, 
+                                activebackground=self.color_white, highlightthickness=0, 
                                 state=rb_state, justify=tk.LEFT, wraplength=initial_wrap_width)
             
             # Restore strikeout state
@@ -1101,7 +1100,7 @@ class NBMESimulatorApp:
                 
                 if self.timer_job: self.root.after_cancel(self.timer_job)
                 
-                self.lbl_subtitle_center.config(text="PRACTICE Self-Assessment", fg=self.text_white)
+                self.lbl_subtitle_center.config(text="PRACTICE Self-Assessment", fg=self.color_white)
                 self.time_left = len(self.questions) * 90
                 self.update_ui()
                 
