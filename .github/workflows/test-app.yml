@@ -1,0 +1,43 @@
+name: Windows Clean Room Test
+
+on:
+  push:
+    branches: [ "Windows-App"]
+  pull_request:
+    branches: [ "Windows-App"]
+
+jobs:
+  test-bundled-app-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Unzip the Application
+      shell: pwsh
+      run: |
+        # Expand the zipped --onedir build 
+        Expand-Archive -Path NBME_Console.zip -DestinationPath .\app_testing
+        
+    - name: Run Tesseract Integration Test
+      shell: pwsh
+      run: |
+        # Path to the executable inside the unzipped folder
+        # Adjust this path if your zip structure nests the folder differently
+        $ExecutablePath = ".\app_testing\NBME_Console\NBME_Console.exe"
+        
+        # Path to your test PDF inside your repository
+        $TestPdfPath = "TestPDF.pdf" 
+        
+        # Execute the app natively in the background.
+        # This will test if the bundled Windows Tesseract fires correctly.
+        & $ExecutablePath $TestPdfPath --test
+        
+        # Capture the exit code to ensure the workflow fails if the app crashes
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Integration test failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+        }
