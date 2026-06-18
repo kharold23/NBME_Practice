@@ -4,11 +4,10 @@ import tkinter.font as tkfont
 import re
 import os
 import sys
-import subprocess
 import math
 import fitz  # PyMuPDF
-import pytesseract # Requires: pip install pytesseract
-from PIL import Image, ImageTk, ImageEnhance, ImageOps
+import pytesseract
+from PIL import Image, ImageTk
 import cv2
 import numpy as np
 try:
@@ -50,7 +49,7 @@ def resource_path(relative_path):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
-    except Exception:``
+    except Exception:
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
@@ -100,7 +99,7 @@ class NBMESimulatorApp:
         
         self.color_blue = "#0a2240"
         self.color_white = "#ffffff"
-        self.color_black = "#f00000"
+        self.color_black = "#000000"
         
         self.base_font = tkfont.Font(family="Arial", size=12)
         self.strike_font = tkfont.Font(family="Arial", size=12, overstrike=1)
@@ -216,7 +215,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.text_question)
         
         # Options Frame
-        self.options_frame = tk.Frame(self.left_panel, bg=self.color_white, fg=self.color_black)
+        self.options_frame = tk.Frame(self.left_panel, bg=self.color_white)
         self._bind_mousewheel(self.options_frame)
         self.radio_buttons = []
 
@@ -417,21 +416,43 @@ class NBMESimulatorApp:
         lbl_full.bind("<Button-1>", lambda e: self.full_img_win.destroy())
 
     def start_timer(self):
+        self.lbl_time_remaining.config(fg=self.color_white) # Reset color on start
         self.timer_running = True
         self.update_timer()
 
     def update_timer(self):
-        if self.timer_running and self.time_left > 0:
+        if not self.timer_running:
+            return
+
+        if self.time_left > 0:
             hrs, remainder = divmod(self.time_left, 3600)
             mins, secs = divmod(remainder, 60)
             self.lbl_time_remaining.config(text=f"{hrs} hr {mins:02d} min {secs:02d} sec")
             self.time_left -= 1
             self.timer_job = self.root.after(1000, self.update_timer)
-        elif self.time_left <= 0 and self.timer_running:
+            
+        elif self.time_left == 0:
             self.timer_running = False
-            self.lbl_time_remaining.config(text="0 hr 00 min 00 sec")
-            messagebox.showinfo("Time's Up", "The exam time has expired. Entering Review Mode.")
-            self.enter_review_mode()
+            self.lbl_time_remaining.config(text="0 hr 00 min 00 sec", fg="#ff4444")
+            
+            # Prompt the user to continue or end
+            end_exam = messagebox.askyesno("Time's Up", "The exam time has expired.\n\nWould you like to end the exam?")
+            if end_exam:
+                self.enter_review_mode()
+            else:
+                self.timer_running = True
+                self.time_left -= 1
+                self.timer_job = self.root.after(1000, self.update_timer)
+                
+        else: # Overtime (Negative Time)
+            abs_time = abs(self.time_left)
+            hrs, remainder = divmod(abs_time, 3600)
+            mins, secs = divmod(remainder, 60)
+            
+            # Prepend the minus sign and color it red to indicate overtime
+            self.lbl_time_remaining.config(text=f"- {hrs} hr {mins:02d} min {secs:02d} sec", fg="#ff4444")
+            self.time_left -= 1
+            self.timer_job = self.root.after(1000, self.update_timer)
 
     def toggle_pause(self):
         if not self.timer_running or self.review_mode:
@@ -591,6 +612,12 @@ class NBMESimulatorApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load inline Lab Values PDF:\n{e}")
 
+    def confirm_end_test(self):
+        if messagebox.askyesno("End Exam", "Are you sure you want to end the exam and enter Review Mode?"):
+            if self.review_window and self.review_window.winfo_exists():
+                self.review_window.destroy()
+            self.enter_review_mode()
+
     def open_review_window(self):
         if self.review_window and self.review_window.winfo_exists():
             self.review_window.destroy()
@@ -611,6 +638,14 @@ class NBMESimulatorApp:
                                font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
         export_btn.pack(pady=(0, 10))
 
+        # --- Add "End Test" button during active exam ---
+        if not self.review_mode:
+            end_btn = tk.Button(self.review_window, text="End Test", 
+                                command=self.confirm_end_test, bg=self.color_white, fg=self.color_blue, 
+                                font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
+            end_btn.pack(pady=(0, 10))
+        # -----------------------------------------------------
+
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0)
         scrollbar = ttk.Scrollbar(self.review_window, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg=self.color_white)
@@ -626,7 +661,7 @@ class NBMESimulatorApp:
         
         for i, q in enumerate(self.questions):
             is_answered = q.selected_option.get() != ""
-            bg_color = "#80de98" if is_answered else "#d0747c" 
+            bg_color = "#90ffab" if is_answered else "#ff808b" 
             flag = " 🚩" if i in self.marked_questions else ""
             btn_text = f"#{i + 1}{flag}" 
             
