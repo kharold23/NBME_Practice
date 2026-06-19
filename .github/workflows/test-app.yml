@@ -25,19 +25,28 @@ jobs:
     - name: Run Tesseract Integration Test
       shell: pwsh
       run: |
-        # Path to the executable inside the unzipped folder
-        # Adjust this path if your zip structure nests the folder differently
         $ExecutablePath = ".\app_testing\NBME_Console\NBME_Console.exe"
-        
-        # Path to your test PDF inside your repository
         $TestPdfPath = "TestPDF.pdf" 
         
-        # Execute the app natively in the background.
-        # This will test if the bundled Windows Tesseract fires correctly.
-        & $ExecutablePath $TestPdfPath --test
-        
-        # Capture the exit code to ensure the workflow fails if the app crashes
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Integration test failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+        # 1. VERIFY PATH: If the .exe isn't here, print out the actual folder structure so we can fix the path.
+        if (-Not (Test-Path $ExecutablePath)) {
+            Write-Error "Could not find executable at $ExecutablePath."
+            Write-Host "Here is what was actually unzipped:"
+            Get-ChildItem -Path .\app_testing -Recurse | Select-Object FullName
+            exit 1
         }
+        
+        # 2. EXECUTE AND WAIT: Start-Process forces the runner to wait for the GUI app to finish its --test routine.
+        Write-Host "Launching executable..."
+        $process = Start-Process -FilePath $ExecutablePath -ArgumentList $TestPdfPath, "--test" -Wait -PassThru
+        
+        # 3. CAPTURE EXIT CODE:
+        $exitCode = $process.ExitCode
+        Write-Host "Process exited with code: $exitCode"
+        
+        if ($exitCode -ne 0) {
+            Write-Error "Integration test failed or crashed with exit code $exitCode"
+            exit $exitCode
+        }
+        
+        Write-Host "Integration test completed successfully!"
