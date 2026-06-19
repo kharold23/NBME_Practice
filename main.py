@@ -23,8 +23,8 @@ def get_tesseract_cmd():
     if getattr(sys, 'frozen', False):
         # We are running inside a bundled executable
         if sys.platform == 'win32':
-            # Windows: Tesseract folder is placed directly next to the .exe
-            base_dir = os.path.dirname(sys.executable)
+            # Use sys._MEIPASS to dynamically find the _internal data folder
+            base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             tess_dir = os.path.join(base_dir, 'Tesseract-OCR')
             tess_path = os.path.join(tess_dir, 'tesseract.exe')
             
