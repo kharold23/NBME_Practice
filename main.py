@@ -5,7 +5,7 @@ import re
 import os
 import sys
 import math
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import pytesseract
 from PIL import Image, ImageTk
 import cv2
