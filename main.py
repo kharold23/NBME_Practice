@@ -19,14 +19,56 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-# ==========================================
-# CODER CONFIGURATION
-# ==========================================
-LAB_VALUES_PDF_PATH = "lab_values_reference.pdf"
+def get_tesseract_cmd():
+    if getattr(sys, 'frozen', False):
+        # We are running inside a bundled executable
+        if sys.platform == 'win32':
+            # Windows: Tesseract folder is placed directly next to the .exe
+            base_dir = os.path.dirname(sys.executable)
+            tess_dir = os.path.join(base_dir, 'Tesseract-OCR')
+            tess_path = os.path.join(tess_dir, 'tesseract.exe')
+            
+            os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
+            return tess_path
+            
+        elif sys.platform == 'darwin':
+            # macOS: Tesseract is inside the .app/Contents/Resources
+            macos_dir = os.path.dirname(sys.executable)
+            contents_dir = os.path.dirname(macos_dir) 
+            tess_dir = os.path.join(contents_dir, 'Resources', 'Tesseract-OCR')
+            tess_path = os.path.join(tess_dir, 'tesseract')
+            
+            os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
+            return tess_path
+    else:
+        # We are running locally during development
+        if sys.platform == 'win32':
+            possible_paths = [
+                r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+                r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
+            ]
+        else:
+            possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
+            
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        return 'tesseract'
 
-# If on Windows, uncomment and update the line below to point to your Tesseract installation:
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# ==========================================
+pytesseract.pytesseract.tesseract_cmd = get_tesseract_cmd()
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+# Update your configuration line to use this function:
+LAB_VALUES_PDF_PATH = resource_path("lab_values_reference.pdf")
 
 class Question:
     def __init__(self, root, text, options, image=None, inverted=False, instructions=""):
@@ -45,6 +87,7 @@ class Question:
 class NBMESimulatorApp:
     def __init__(self, root):
         self.root = root
+        self.is_test_mode = False
         self.root.title("NBME Self-Assessment Simulator")
         self.root.geometry("1024x768")
         self.root.configure(bg="white")
@@ -1020,8 +1063,10 @@ class NBMESimulatorApp:
             
         return processed_rgb
 
-    def load_pdf(self):
-        file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
+    def load_pdf(self, file_path=None): # Added optional parameter
+        if not file_path:
+            # Only open the dialog if no path was provided via CLI
+            file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
             
         try:
@@ -1111,7 +1156,10 @@ class NBMESimulatorApp:
                 unparsed_str = f"Pages with no new questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
                 msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
                 
-                start_exam = messagebox.askyesno("Processing Complete", msg)
+                if self.is_test_mode:
+                    start_exam = False 
+                else:
+                    start_exam = messagebox.askyesno("Processing Complete", msg)
                 
                 if start_exam:
                     self.start_timer()
@@ -1132,4 +1180,34 @@ class NBMESimulatorApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = NBMESimulatorApp(root)
+    
+    # Check for CLI arguments for CI/CD testing
+    if len(sys.argv) > 1:
+        pdf_args = [arg for arg in sys.argv if arg.lower().endswith('.pdf')]
+        is_test_mode = "--test" in sys.argv
+        
+        # Pass the test mode state to the app
+        app.is_test_mode = is_test_mode 
+
+        if pdf_args:
+            test_pdf_path = pdf_args[0]
+            
+            def run_automated_test():
+                print(f"Loading test file: {test_pdf_path}")
+                app.load_pdf(test_pdf_path)
+                
+                # If we successfully parsed questions, Tesseract is working
+                if app.questions:
+                    print(f"SUCCESS: Parsed {len(app.questions)} questions using Tesseract.")
+                    if is_test_mode:
+                        print("Test complete. Exiting normally.")
+                        root.destroy() # Closes the app, allowing GitHub Actions to pass
+                else:
+                    print("FAILURE: No questions parsed. Tesseract integration may have failed.")
+                    if is_test_mode:
+                        sys.exit(1) # Forces GitHub Actions to fail the workflow
+            
+            # Delay execution slightly to ensure the GUI has initialized
+            root.after(500, run_automated_test)
+
     root.mainloop()
