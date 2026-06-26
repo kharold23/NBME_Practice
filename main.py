@@ -23,7 +23,7 @@ except ImportError:
 # ==========================================
 # CODER CONFIGURATION
 # ==========================================
-LAB_VALUES_PDF_PATH = "lab_values_reference.pdf"
+LAB_VALUES_PDF_PATH = "assets/lab_values_reference.pdf"
 
 # Configure CustomTkinter default global styling
 ctk.set_appearance_mode("light")
@@ -72,8 +72,8 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
-        self.base_font = tkfont.Font(family="Arial", size=12)
-        self.strike_font = tkfont.Font(family="Arial", size=12, overstrike=1)
+        self.base_font = tkfont.Font(family="Arial", size=14)
+        self.strike_font = tkfont.Font(family="Arial", size=14, overstrike=1)
         
         self.create_widgets()
         self.update_ui()
@@ -172,7 +172,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -185,14 +185,14 @@ class NBMESimulatorApp:
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 9)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 10)).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
@@ -886,8 +886,44 @@ class NBMESimulatorApp:
             
         self.main_canvas.yview_moveto(0)
 
+    def _fill_missing_options(self, options):
+        """
+        Evaluates a list of options (e.g., ['A) text', 'C) text']) and fills in 
+        missing letters up to the highest detected option with an error placeholder.
+        """
+        if not options:
+            return []
+            
+        letters_found = []
+        for opt in options:
+            match = re.match(r'^([A-Z])\)', opt.strip())
+            if match:
+                letters_found.append(match.group(1))
+                
+        if not letters_found:
+            return options
+            
+        max_letter = max(letters_found)
+        complete_options = []
+        
+        # Iterate from 'A' up to the highest letter found
+        for i in range(ord('A'), ord(max_letter) + 1):
+            expected_letter = chr(i)
+            
+            # Search for an existing option that matches the expected letter
+            found_opt = next((opt for opt in options if opt.strip().startswith(f"{expected_letter})")), None)
+            
+            if found_opt:
+                complete_options.append(found_opt)
+            else:
+                # Inject fallback if the OCR missed this letter
+                complete_options.append(f"{expected_letter}) [OCR error, see reference]")
+                
+        return complete_options
+
     def parse_text_to_questions(self, raw_pages):
         parsed_questions = []
+        unparsed_pages = []
         pages_with_questions = set()
         inverted_q_remaining = 0
 
@@ -898,12 +934,15 @@ class NBMESimulatorApp:
             clean_text = page_text.strip()
             
             options = []
+            parsed_successfully = False
+            
             clean_text = re.sub(r'[1|lI]\)', 'I)', clean_text)
             
             inv_trigger = re.search(r'The\s+response\s+options\s+for\s+the\s+next\s+(\d+)', clean_text, re.IGNORECASE)
             if inv_trigger:
                 inverted_q_remaining = int(inv_trigger.group(1))
 
+            # Handle "Inverted" questions (where options appear before the prompt)
             if inverted_q_remaining > 0:
                 split_point = re.search(r'A\)', clean_text)
                 if split_point:
@@ -918,31 +957,46 @@ class NBMESimulatorApp:
                     options_messy = re.split(r'(?=[A-Z]\))', answers_block)
                     options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                     options.sort()
+                    
+                    # Fill in missing answer choices
+                    options = self._fill_missing_options(options)
 
                     if options:
                         parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=True, instructions=instructions))
                         pages_with_questions.add(page_num)
+                        parsed_successfully = True
                 
                 inverted_q_remaining -= 1
-                continue
             
-            match = re.search(r'^(\d+)\.', clean_text, re.DOTALL)
-            split_point = re.search(r'A\)', clean_text)
-            if split_point:
-                q_text = clean_text[:split_point.start()]
-                q_text = q_text.replace('\n', ' ')
+            # Handle Standard questions
+            else:
+                match = re.search(r'^(\d+)\.', clean_text, re.DOTALL)
+                split_point = re.search(r'A\)', clean_text)
+                if split_point:
+                    q_text = clean_text[:split_point.start()]
+                    q_text = q_text.replace('\n', ' ')
 
-                answers_block = clean_text[split_point.start():]
-                options_messy = re.split(r'(?=[A-Z]\))', answers_block)
-                options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
-                options.sort()
+                    answers_block = clean_text[split_point.start():]
+                    options_messy = re.split(r'(?=[A-Z]\))', answers_block)
+                    options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
+                    options.sort()
+                    
+                    # Fill in missing answer choices
+                    options = self._fill_missing_options(options)
 
-            if options:
-                parsed_questions.append(Question(self.root,q_text, options, image=page_image, inverted=False))
+                if options:
+                    parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=False))
+                    pages_with_questions.add(page_num)
+                    parsed_successfully = True
+
+            # Fallback for unparsed pages: 1-to-1 page/question matching
+            if not parsed_successfully:
+                fallback_text = "[OCR unable to process this question, please see reference image]"
+                # Generate options A through Z
+                fallback_options = [f"{chr(i)})" for i in range(65, 91)] 
+                unparsed_pages.append(page_num)
+                parsed_questions.append(Question(self.root, fallback_text, fallback_options, image=page_image, inverted=False))
                 pages_with_questions.add(page_num)
-                
-        all_pages = [p["page_num"] for p in raw_pages]
-        unparsed_pages = [p for p in all_pages if p not in pages_with_questions]
                 
         return parsed_questions, unparsed_pages
 
@@ -1058,7 +1112,7 @@ class NBMESimulatorApp:
                 self.time_left = len(self.questions) * 90
                 self.update_ui()
                 
-                unparsed_str = f"Pages with no new questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
+                unparsed_str = f"Pages with no questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
                 msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
                 
                 start_exam = messagebox.askyesno("Processing Complete", msg)
