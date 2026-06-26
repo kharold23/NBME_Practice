@@ -1136,6 +1136,7 @@ class NBMESimulatorApp:
         crop_array = np.array(img.convert('RGB'))
         img_bgr = cv2.cvtColor(crop_array, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 20, 80)
         
@@ -1153,7 +1154,36 @@ class NBMESimulatorApp:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
             if min_chart_area < area < max_chart_area:
-                cv2.rectangle(img_bgr, (x-1, y-1), (x+w+2, y+h+2), (255, 255, 255), -1)
+                roi_gray = gray[y:y+h, x:x+w]
+                
+                # --- CHECK 1: Adaptive Pixel Density (Catches Photos, CTs, Smears) ---
+                # Otsu automatically finds the optimal threshold to separate foreground from background
+                _, otsu_roi = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+                
+                # Text paragraphs typically have 5-15% dark pixels. Photos and scans are much denser.
+                fg_ratio = cv2.countNonZero(otsu_roi) / area
+                is_image = fg_ratio > 0.22
+                
+                # --- CHECK 2: Structural Morphology (Catches Line Graphs, Visual Fields) ---
+                # If it's sparse (like a line graph), we check the size of the shapes inside.
+                if not is_image:
+                    _, binary_roi = cv2.threshold(roi_gray, 200, 255, cv2.THRESH_BINARY_INV)
+                    internal_contours, _ = cv2.findContours(binary_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    for ic in internal_contours:
+                        _, _, iw, ih = cv2.boundingRect(ic)
+                        # If a single connected shape (like a circle or curve) spans >40% of both the width and height.
+                        # Text letters never span this much of a full paragraph block.
+                        if iw > w * 0.4 and ih > h * 0.4:
+                            is_image = True
+                            break
+                            
+                if is_image:
+                    pad = 15
+                    cv2.rectangle(img_bgr, 
+                                  (max(0, x - pad), max(0, y - pad)), 
+                                  (min(w_img, x + w + pad), min(h_img, y + h + pad)), 
+                                  (255, 255, 255), -1)
 
         final_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)).convert("L")
         final_pil = final_pil.point(lambda p: 255 if p > 120 else p)
@@ -1206,6 +1236,7 @@ class NBMESimulatorApp:
                 raw_img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
                 final_img = self.preprocess_for_ocr(raw_img, page_num)
+                final_img.save(f"extracted_images/debug_page_{page_num + 1}.png")
                 config = '--psm 6'
                 text = pytesseract.image_to_string(final_img, config=config)
 
