@@ -691,8 +691,133 @@ class NBMESimulatorApp:
             else:
                 self.marked_questions.discard(self.current_index)
 
+    def show_help_pdf(self):
+        """Creates an in-app window to render and display a Help PDF dynamically sized to the window."""
+        if hasattr(self, 'help_window') and self.help_window and self.help_window.winfo_exists():
+            self.help_window.lift()
+            return
+
+        self.help_window = ctk.CTkToplevel(self.root)
+        self.help_window.title("Help Documentation")
+        self.help_window.geometry("850x700")
+        self.help_window.configure(fg_color=self.color_white)
+        self.help_window.transient(self.root)
+        
+        pdf_path = "assets/HelpDocument.pdf" 
+        
+        if not os.path.exists(pdf_path):
+            pdf_path = filedialog.askopenfilename(
+                title="Select Help PDF", 
+                filetypes=[("PDF files", "*.pdf")]
+            )
+            if not pdf_path:
+                self.help_window.destroy()
+                return
+                
+        try:
+            self.help_doc = fitz.open(pdf_path)
+            
+            # --- Layout Setup ---
+            self.help_canvas = tk.Canvas(self.help_window, bg=self.color_white, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(self.help_window, orient="vertical", command=self.help_canvas.yview)
+            self.help_scroll_frame = tk.Frame(self.help_canvas, bg=self.color_white)
+            
+            self.help_canvas_window = self.help_canvas.create_window((0, 0), window=self.help_scroll_frame, anchor="n")
+            self.help_canvas.configure(yscrollcommand=scrollbar.set)
+            
+            self.help_canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # --- Scroll Logic (Matching the Lab Values implementation) ---
+            def _on_help_mousewheel(event):
+                bbox = self.help_canvas.bbox("all")
+                # Prevents scrolling if content is smaller than window height
+                if not bbox or bbox[3] <= self.help_canvas.winfo_height():
+                    return "break"
+                self.help_canvas.yview_scroll(self._get_scroll_delta(event), "units")
+                return "break"
+
+            def _bind_help_mousewheel(widget):
+                widget.bind("<MouseWheel>", _on_help_mousewheel)
+                widget.bind("<Button-4>", _on_help_mousewheel)
+                widget.bind("<Button-5>", _on_help_mousewheel)
+
+            _bind_help_mousewheel(self.help_canvas)
+            _bind_help_mousewheel(self.help_scroll_frame)
+
+            # --- Dynamic PDF Resizing ---
+            self.help_pdf_images = []
+            self.last_help_width = 0
+            self.help_resize_job = None
+            
+            def render_pdf_pages(target_width):
+                """Renders pages with a scale calculated to fit the target width."""
+                self.help_pdf_images.clear()
+                for widget in self.help_scroll_frame.winfo_children():
+                    widget.destroy()
+                
+                # Account for scrollbar and padding in width calculation
+                usable_width = target_width - 50 
+                
+                for page_num in range(len(self.help_doc)):
+                    page = self.help_doc.load_page(page_num)
+                    scale = usable_width / page.rect.width
+                    if scale <= 0: scale = 1.0  
+                    
+                    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale)) 
+                    mode = "RGBA" if pix.alpha else "RGB"
+                    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                    
+                    photo = ImageTk.PhotoImage(img)
+                    self.help_pdf_images.append(photo)
+                    
+                    lbl = tk.Label(self.help_scroll_frame, image=photo, bg=self.color_white, bd=1, relief="solid")
+                    lbl.pack(pady=10, padx=10)
+                    
+                    # Ensure the image itself allows scrolling when hovered
+                    _bind_help_mousewheel(lbl) 
+                    
+                self.help_window.update_idletasks()
+                self.help_canvas.configure(scrollregion=self.help_canvas.bbox("all"))
+
+            def on_canvas_configure(event):
+                """Debounced function to re-render PDF if the window is resized."""
+                self.help_canvas.itemconfig(self.help_canvas_window, width=event.width)
+                
+                # Only re-render if the width has changed significantly to avoid lag
+                if abs(event.width - self.last_help_width) > 30:
+                    if self.help_resize_job:
+                        self.help_window.after_cancel(self.help_resize_job)
+                    self.last_help_width = event.width
+                    
+                    # Wait 300ms after the user stops dragging the window to render the new quality
+                    self.help_resize_job = self.help_window.after(300, lambda: render_pdf_pages(event.width))
+
+            self.help_canvas.bind("<Configure>", on_canvas_configure)
+            
+            # --- Initial Render ---
+            initial_width = self.help_window.winfo_width()
+            if initial_width < 100: 
+                initial_width = 850 
+            render_pdf_pages(initial_width)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load PDF:\n{e}")
+            if self.help_window.winfo_exists():
+                self.help_window.destroy()
+
     def handle_bottom_action(self, action):
+        # 1. Process "Help" BEFORE the guard clause so it works at any time
+        if action == "Help":
+            self.show_help_pdf()
+            return
+        elif action == "Lab Values":
+            self.open_lab_values()
+            return
+
+        # 2. Guard clause for all other exam-related actions
         if not self.questions: return
+        
         if action == "Next":
             if self.current_index < len(self.questions) - 1:
                 self.save_current_state()
@@ -709,14 +834,8 @@ class NBMESimulatorApp:
                 self.update_ui()
         elif action == "Pause":
             self.toggle_pause()
-        elif action == "Lab Values":
-            self.open_lab_values()
         elif action == "Review":
             self.open_review_window()
-        elif action == "Help":
-            messagebox.showinfo("Help", "NBME Interface Simulator\n\n- Text Highlighting: Select text with mouse.\n- Strikeout Options: Alt + Click option text.")
-        elif action == "Calculator":
-            messagebox.showinfo("Calculator", "System Calculator integration placeholder.")
 
     def open_lab_values(self):
         """Toggles the inline Lab Values Table Panel"""
