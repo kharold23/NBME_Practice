@@ -1469,7 +1469,10 @@ class NBMESimulatorApp:
                 unparsed_str = f"Pages with no questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
                 msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
                 
-                start_exam = messagebox.askyesno("Processing Complete", msg)
+                if self.is_test_mode:
+                    start_exam = False 
+                else:
+                    start_exam = messagebox.askyesno("Processing Complete", msg)
                 if start_exam:
                     self.start_timer()
                 else:
