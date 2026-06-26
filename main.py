@@ -157,8 +157,8 @@ class NBMESimulatorApp:
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
         
-        self.content_frame.columnconfigure(0, weight=70, uniform="panels")
-        self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+        self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+        self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         self.content_frame.rowconfigure(0, weight=1) 
         
         self.left_panel = tk.Frame(self.content_frame, bg=self.color_white)
@@ -594,6 +594,20 @@ class NBMESimulatorApp:
             
             if not self.lab_values_images:
                 self.load_lab_values_pdf()
+                
+        # --- NEW: Recalculate text box heights after layout changes ---
+        self.root.update_idletasks() # Ensure the new column widths have been fully applied
+        if self.questions:
+            q = self.questions[self.current_index]
+            
+            lines_top = self.text_question.count("1.0", "end", "displaylines")
+            if lines_top:
+                self.text_question.config(height=lines_top[0] + 1)
+                
+            if q.inverted:
+                lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
+                if lines_bottom:
+                    self.text_question_bottom.config(height=lines_bottom[0] + 1)
 
     def load_lab_values_pdf(self):
         """Renders the PDF pages to ImageTk objects to display in the Lab Values panel."""
@@ -852,7 +866,7 @@ class NBMESimulatorApp:
         
         if q.image:
             thumb = q.image.copy()
-            thumb.thumbnail((300, 450), Image.Resampling.LANCZOS)
+            thumb.thumbnail((100, 150), Image.Resampling.LANCZOS)
             self.thumb_photo = ImageTk.PhotoImage(thumb) 
             self.lbl_preview.config(image=self.thumb_photo, text="")
         else:
