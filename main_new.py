@@ -6,7 +6,7 @@ import re
 import os
 import sys
 import math
-import pymupdf as fitz  # PyMuPDF
+import fitz  # PyMuPDF
 import pytesseract
 from PIL import Image, ImageTk
 import cv2
@@ -26,35 +26,22 @@ ctk.set_default_color_theme("blue")
 
 def get_tesseract_cmd():
     if getattr(sys, 'frozen', False):
-        # We are running inside a bundled executable
-        if sys.platform == 'win32':
-            # Use sys._MEIPASS to dynamically find the _internal data folder
-            base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-            tess_dir = os.path.join(base_dir, 'Tesseract-OCR')
-            tess_path = os.path.join(tess_dir, 'tesseract.exe')
-            
-            os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
-            return tess_path
-            
-        elif sys.platform == 'darwin':
-            # macOS: Tesseract is inside the .app/Contents/Resources
-            macos_dir = os.path.dirname(sys.executable)
-            contents_dir = os.path.dirname(macos_dir) 
-            tess_dir = os.path.join(contents_dir, 'Resources', 'Tesseract-OCR')
-            tess_path = os.path.join(tess_dir, 'tesseract')
-            
-            os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
-            return tess_path
+        # We are running inside the bundled .app
+        # sys.executable points to: .../Contents/MacOS/YourApp
+        macos_dir = os.path.dirname(sys.executable)
+        contents_dir = os.path.dirname(macos_dir) # Moves up one level to /Contents
+        
+        # Point to the Resources folder instead
+        tess_dir = os.path.join(contents_dir, 'Resources', 'Tesseract-OCR')
+        tess_path = os.path.join(tess_dir, 'tesseract')
+        
+        # FORCE Tesseract to use the bundled language data folder
+        os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
+        
+        return tess_path
     else:
-        # We are running locally during development
-        if sys.platform == 'win32':
-            possible_paths = [
-                r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-                r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
-            ]
-        else:
-            possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
-            
+        # We are running the script locally during development
+        possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract'] # '/usr/local/Cellar/tesseract/5.5.2'
         for path in possible_paths:
             if os.path.exists(path):
                 return path
@@ -909,10 +896,8 @@ class NBMESimulatorApp:
             self.content_frame.columnconfigure(0, weight=80, uniform="panels")
             self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
-            # Show the panel
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
             self.lab_values_open = True
-            # Update to 50/50 split
             self.content_frame.columnconfigure(0, weight=50, uniform="panels")
             self.content_frame.columnconfigure(1, weight=50, uniform="panels")
             
