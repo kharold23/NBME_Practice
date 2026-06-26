@@ -768,14 +768,14 @@ class NBMESimulatorApp:
                      font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
-                                   command=self.export_to_pdf, fg_color="white", text_color=self.color_blue, 
-                                   hover_color="#e0e0e0", font=("Arial", 10, "bold"))
+                                   command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
+                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
         export_btn.pack(pady=(0, 10))
 
         if not self.review_mode:
             end_btn = ctk.CTkButton(self.review_window, text="End Test", 
-                                    command=self.confirm_end_test, fg_color="white", text_color=self.color_blue, 
-                                    hover_color="#e0e0e0", font=("Arial", 10, "bold"))
+                                    command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
+                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
             end_btn.pack(pady=(0, 10))
 
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
@@ -1000,8 +1000,7 @@ class NBMESimulatorApp:
             
             rb.pack(anchor="w", pady=5)
             self._bind_mousewheel(rb)
-            rb.bind("<Alt-Button-1>", self.toggle_strikeout)
-            rb.bind("<Option-Button-1>", self.toggle_strikeout)
+            rb.bind("<Control-Button-1>", self.toggle_strikeout)
             self.radio_buttons.append(rb)
             
         self.main_canvas.yview_moveto(0)
