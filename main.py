@@ -20,11 +20,6 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-# ==========================================
-# CODER CONFIGURATION
-# ==========================================
-LAB_VALUES_PDF_PATH = "assets/lab_values_reference.pdf"
-
 # Configure CustomTkinter default global styling
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -203,22 +198,203 @@ class NBMESimulatorApp:
         
         tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
         
-        self.lab_canvas = tk.Canvas(self.lab_values_container, bg=self.color_white, highlightthickness=1, highlightbackground="#cccccc", yscrollincrement="15")
-        self.lab_scrollable_frame = tk.Frame(self.lab_canvas, bg=self.color_white)
-        
-        self.lab_scrollbar = ttk.Scrollbar(self.lab_values_container, orient="vertical", command=self.lab_canvas.yview)
-        self.lab_canvas.configure(yscrollcommand=self.lab_scrollbar.set,)
+        self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
+        self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        self.lab_window_id = self.lab_canvas.create_window((0, 0), window=self.lab_scrollable_frame, anchor="n")
-        self.lab_scrollable_frame.bind("<Configure>", lambda e: self.lab_canvas.configure(scrollregion=self.lab_canvas.bbox("all")))
+        # Style the Treeview
+        style = ttk.Style()
+        style.configure("Treeview", font=("Arial", 10), rowheight=25)
+        style.configure("Treeview.Heading", font=("Arial", 10, "bold"))
 
-        self.lab_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.lab_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Setup Table Columns
+        columns = ("Lab Test", "Reference Range", "SI Interval")
+        self.lab_tree = ttk.Treeview(self.lab_tree_frame, columns=columns, show="headings", selectmode="none")
         
-        self.lab_canvas.bind("<Configure>", self.on_lab_canvas_resize)
+        self.lab_tree.heading("Lab Test", text="Lab Test")
+        self.lab_tree.heading("Reference Range", text="Reference Range")
+        self.lab_tree.heading("SI Interval", text="SI Interval")
         
-        self._bind_lab_mousewheel(self.lab_canvas)
-        self._bind_lab_mousewheel(self.lab_scrollable_frame)
+        self.lab_tree.column("Lab Test", width=100, anchor=tk.W)
+        self.lab_tree.column("Reference Range", width=120, anchor=tk.W)
+        self.lab_tree.column("SI Interval", width=120, anchor=tk.W)
+
+        # Setup Scrollbar
+        self.lab_tree_scrollbar = ttk.Scrollbar(self.lab_tree_frame, orient=tk.VERTICAL, command=self.lab_tree.yview)
+        self.lab_tree.configure(yscrollcommand=self.lab_tree_scrollbar.set)
+
+        self.lab_tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.lab_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        header_font = tkfont.Font(family="Arial", size=10, weight="bold", underline=True)
+        self.lab_tree.tag_configure("header_row", font=header_font)
+
+        # Insert Filler Data
+        lab_values_data = [
+            ("General Chemistry", "", ""),
+            ("Sodium (Na+)", "136-146 mEq/L", "136-146 mmol/L"), 
+            ("Potassium (K+)", "3.5-5.0 mEq/L", "3.5-5.0 mmol/L"), 
+            ("Chloride (Cl-)", "95-105 mEq/L", "95-105 mmol/L"), 
+            ("Bicarbonate (HCO3-)", "22-28 mEq/L", "22-28 mmol/L"), 
+            ("Urea nitrogen", "7-18 mg/dL", "2.5-6.4 mmol/L"), 
+            ("Creatinine", "0.6-1.2 mg/dL", "53-106 µmol/L"), 
+            ("Glucose (Fasting)", "70-100 mg/dL", "3.8-5.6 mmol/L"), 
+            ("Glucose (Random)", "<140 mg/dL", "<7.77 mmol/L"), 
+            ("Calcium", "8.4-10.2 mg/dL", "2.1-2.6 mmol/L"), 
+            ("Magnesium (Mg2+)", "1.5-2.0 mg/dL", "0.75-1.0 mmol/L"), 
+            ("Phosphorus (inorganic)", "3.0-4.5 mg/dL", "1.0-1.5 mmol/L"), 
+            
+            ("", "", ""),
+            ("Hepatic", "", ""),
+            ("ALT", "10-40 U/L", "10-40 U/L"), 
+            ("AST", "12-38 U/L", "12-38 U/L"), 
+            ("Alkaline phosphatase", "25-100 U/L", "25-100 U/L"), 
+            ("Bilirubin, total", "0.1-1.0 mg/dL", "2-17 µmol/L"), 
+            ("Bilirubin, direct", "0.0-0.3 mg/dL", "0-5 µmol/L"), 
+            ("Proteins, total", "6.0-7.8 g/dL", "60-78 g/L"), 
+            ("Albumin", "3.5-5.5 g/dL", "35-55 g/L"), 
+            ("Globulin", "2.3-3.5 g/dL", "23-35 g/L"), 
+            
+            ("", "", ""),
+            ("Other, serum", "", ""),
+            ("Amylase", "25-125 U/L", "25-125 U/L"), 
+            ("Lipase", "13-60 U/L", "13-60 U/L"), 
+            ("Creatinine clearance", "Male: 97-137 mL/min", "Female: 88-128 mL/min"), 
+            ("", "Female: 88-128 mL/min", "Female: 88-128 mL/min"), 
+            ("Creatine kinase", "Male: 25-90 U/L", "Male: 25-90 U/L"), 
+            ("", "Female: 10-70 U/L", "Female: 10-70 U/L"), 
+            ("Lactate dehydrogenase", "45-200 U/L", "45-200 U/L"), 
+            ("Osmolality", "275-295 mOsmol/kg H2O", "275-295 mOsmol/kg H2O"), 
+            ("Troponin I", "≤0.04 ng/mL", "≤0.04 µg/L"), 
+            ("Uric acid", "3.0-8.2 mg/dL", "0.18-0.48 mmol/L"), 
+
+            ("", "", ""),
+            ("Lipids", "", ""),
+            ("Cholesterol, Total (Normal)", "<200 mg/dL", "<5.2 mmol/L"), 
+            ("Cholesterol, Total (High)", ">240 mg/dL", ">6.2 mmol/L"), 
+            ("Cholesterol, HDL", "40-60 mg/dL", "1.0-1.6 mmol/L"), 
+            ("Cholesterol, LDL", "<160 mg/dL", "<4.2 mmol/L"), 
+            ("Triglycerides (Normal)", "<150 mg/dL", "<1.70 mmol/L"), 
+            ("Triglycerides (Borderline)", "151-199 mg/dL", "1.71-2.25 mmol/L"), 
+
+            ("", "", ""),
+            ("Iron Studies", "", ""),
+            ("Ferritin", "Male: 20-250 ng/mL", "Male: 20-250 µg/L"), 
+            ("", "Female: 10-120 ng/mL", "Female: 10-120 µg/L"), 
+            ("Iron", "Male: 65-175 µg/dL", "Male: 11.6-31.3 µmol/L"), 
+            ("", "Female: 50-170 µg/dL", "Female: 9.0-30.4 μmol/L"), 
+            ("Total iron-binding capacity", "250-400 µg/dL", "44.8-71.6 µmol/L"), 
+            ("Transferrin", "200-360 mg/dL", "2.0-3.6 g/L"), 
+
+            ("", "", ""),
+            ("Endocrine", "", ""),
+            ("FSH", "Male: 4-25 mIU/mL", "Male: 4-25 IU/L"), 
+            ("", "Female: premenopause 4-30 mIU/mL", "Female: premenopause 4-30 IU/L"), 
+            ("", "midcycle peak 10-90 mIU/mL", "midcycle peak 10-90 IU/L"), 
+            ("", "postmenopause 40-250 mIU/mL", "postmenopause 40-250 IU/L"), 
+            ("Luteinizing hormone", "Male: 6-23 mIU/mL", "Male: 6-23 IU/L"), 
+            ("", "Female: follicular phase 5-30 mIU/mL", "Female: follicular phase 5-30 IU/L"), 
+            ("", "midcycle 75-150 mIU/mL", "midcycle 75-150 IU/L"), 
+            ("", "postmenopause 30-200 mIU/mL", "postmenopause 30-200 IU/L"), 
+            ("Growth hormone", "Fasting: <5 ng/mL", "Fasting: <5 µg/L"), 
+            ("", "Provocative stimuli: >7 ng/mL", "Provocative stimuli: >7 µg/L"), 
+            ("Prolactin (hPRL)", "Male: <17 ng/mL", "Male: <17 µg/L"), 
+            ("", "Female: <25 ng/mL", "Female: <25 µg/L"), 
+            ("Cortisol (0800 h)", "5-23 µg/dL", "138-635 nmol/L"), 
+            ("Cortisol (1600 h)", "3-15 µg/dL", "82-413 nmol/L"), 
+            ("Cortisol (2000 h)", "<50% of 0800 h", "Fraction of 0800 h: <0.50"), 
+            ("TSH", "0.4-4.0 μU/mL", "0.4-4.0 mIU/L"), 
+            ("Triiodothyronine (T3) (RIA)", "100-200 ng/dL", "1.5-3.1 nmol/L"), 
+            ("T3 resin uptake", "25%-35%", "0.25-0.35"), 
+            ("Thyroxine (T4)", "5-12 µg/dL", "64-155 nmol/L"), 
+            ("Free T4", "0.9-1.7 ng/dL", "12.0-21.9 pmol/L"), 
+            ("123I uptake", "8%-30% of dose/24 h", "0.08-0.30/24 h"), 
+            ("Intact PTH", "10-60 pg/mL", "10-60 ng/L"), 
+            ("17-Hydroxycorticosteroids", "Male: 3.0-10.0 mg/24 h", "Male: 8.2-27.6 µmol/24 h"), 
+            ("", "Female: 2.0-8.0 mg/24 h", "Female: 5.5-22.0 µmol/24 h"), 
+            ("17-Ketosteroids, total", "Male: 8-20 mg/24 h", "Male: 28-70 μmol/24 h"), 
+            ("", "Female: 6-15 mg/24 h", "Female: 21-52 µmol/24 h"), 
+
+            ("", "", ""),
+            ("Immunoglobulins", "", ""),
+            ("IgA", "76-390 mg/dL", "0.76-3.90 g/L"), 
+            ("IgE", "0-380 IU/mL", "0-380 KIU/L"), 
+            ("IgG", "650-1500 mg/dL", "6.5-15.0 g/L"), 
+            ("IgM", "50-300 mg/dL", "0.5-3.0 g/L"), 
+
+            ("", "", ""),
+            ("Gases, Arterial Blood", "", ""),
+            ("PO2", "75-105 mm Hg", "10.0-14.0 kPa"), 
+            ("PCO2", "33-45 mm Hg", "4.4-5.9 kPa"), 
+            ("pH", "7.35-7.45", "[H+] 36-44 nmol/L"), 
+
+            ("", "", ""),
+            ("Cerebrospinal Fluid", "", ""),
+            ("Cell count", "0-5/mm³", "0-5 x 10^6/L"), 
+            ("Chloride", "118-132 mEq/L", "118-132 mmol/L"), 
+            ("Gamma globulin", "3%-12% total proteins", "0.03-0.12"), 
+            ("Glucose", "40-70 mg/dL", "2.2-3.9 mmol/L"), 
+            ("Pressure", "70-180 mm H2O", "70-180 mm H2O"), 
+            ("Proteins, total", "<40 mg/dL", "<0.40 g/L"), 
+
+            ("", "", ""),
+            ("Hematologic", "", ""),
+            ("Hematocrit", "Male: 41%-53%", "Male: 0.41-0.53"), 
+            ("", "Female: 36%-46%", "Female: 0.36-0.46"), 
+            ("Hemoglobin, blood", "Male: 13.5-17.5 g/dL", "Male: 135-175 g/L"), 
+            ("", "Female: 12.0-16.0 g/dL", "Female: 120-160 g/L"), 
+            ("MCH", "25-35 pg/cell", "0.39-0.54 fmol/cell"), 
+            ("MCHC", "31%-36% Hb/cell", "4.8-5.6 mmol Hb/L"), 
+            ("MCV", "80-100 μm³", "80-100 fL"), 
+            ("Volume, Plasma", "Male: 25-43 mL/kg", "Male: 0.025-0.043 L/kg"), 
+            ("", "Female: 28-45 mL/kg", "Female: 0.028-0.045 L/kg"), 
+            ("Volume, Red cell", "Male: 20-36 mL/kg", "Male: 0.020-0.036 L/kg"), 
+            ("", "Female: 19-31 mL/kg", "Female: 0.019-0.031 L/kg"), 
+            ("Leukocyte count (WBC)", "4500-11,000/mm³", "4.5-11.0 x 10^9/L"), 
+            ("Neutrophils, segmented", "54%-62%", "0.54-0.62"), 
+            ("Neutrophils, bands", "3%-5%", "0.03-0.05"), 
+            ("Lymphocytes", "25%-33%", "0.25-0.33"), 
+            ("Monocytes", "3%-7%", "0.03-0.07"), 
+            ("Eosinophils", "1%-3%", "0.01-0.03"), 
+            ("Basophils", "0%-0.75%", "0.00-0.0075"), 
+            ("Platelet count", "150,000-400,000/mm³", "150-400 x 10^9/L"), 
+
+            ("", "", ""),
+            ("Coagulation", "", ""),
+            ("Partial thromboplastin time", "25-40 seconds", "25-40 seconds"), 
+            ("Prothrombin time (PT)", "11-15 seconds", "11-15 seconds"), 
+            ("D-dimer", "≤250 ng/mL", "≤1.4 nmol/L"), 
+
+            ("", "", ""),
+            ("Other, Hematologic", "", ""),
+            ("Reticulocyte count", "0.5%-1.5%", "0.005-0.015"), 
+            ("Erythrocyte count (RBC)", "Male: 4.3-5.9 million/mm³", "Male: 4.3-5.9 x 10^12/L"), 
+            ("", "Female: 3.5-5.5 million/mm³", "Female: 3.5-5.5 x 10^12/L"), 
+            ("ESR (Westergren)", "Male: 0-15 mm/h", "Male: 0-15 mm/h"), 
+            ("", "Female: 0-20 mm/h", "Female: 0-20 mm/h"), 
+            ("CD4+ T-lymphocyte count", "≥500/mm³", "≥0.5 x 10^9/L"), 
+            
+            ("", "", ""),
+            ("Endocrine (Hemoglobin)", "", ""),
+            ("Hemoglobin A1c", "≤6%", "≤42 mmol/mol"), 
+
+            ("", "", ""),
+            ("Urine", "", ""),
+            ("Calcium", "100-300 mg/24 h", "2.5-7.5 mmol/24 h"), 
+            ("Osmolality", "50-1200 mOsmol/kg H2O", "50-1200 mOsmol/kg H2O"), 
+            ("Oxalate", "8-40 µg/mL", "90-445 µmol/L"), 
+            ("Proteins, total", "<150 mg/24 h", "<0.15 g/24 h"), 
+
+            ("", "", ""),
+            ("Body Mass Index (BMI)", "", ""),
+            ("Adult BMI", "19-25 kg/m²", "") 
+        ]
+        
+        for item in lab_values_data:
+            # Check if the 2nd and 3rd columns (Reference Range and SI Interval) are empty
+            if item[1] == "" and item[2] == "":
+                self.lab_tree.insert("", tk.END, values=item, tags=("header_row",))
+            else:
+                self.lab_tree.insert("", tk.END, values=item)
 
         # --- Bottom Bar ---
         self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=65)
@@ -309,36 +485,6 @@ class NBMESimulatorApp:
                     rb.config(wraplength=wrap_width)
                 except tk.TclError:
                     pass
-
-    def on_lab_canvas_resize(self, event):
-        """Listens to the canvas resizing and triggers a debounced re-render of the PDF."""
-        if not self.lab_values_open:
-            return
-            
-        new_width = event.width
-        self.lab_canvas.coords(self.lab_window_id, new_width / 2, 0)
-        
-        if abs(self.last_canvas_width - event.width) < 15:
-            return
-            
-        self.last_canvas_width = event.width
-        
-        if self.lab_resize_job is not None:
-            self.root.after_cancel(self.lab_resize_job)
-            
-        self.lab_resize_job = self.root.after(400, self.reload_lab_values_pdf)
-
-    def reload_lab_values_pdf(self):
-        """Clears the existing images and forces a fresh render at the new width."""
-        if not self.lab_values_open:
-            return
-            
-        for widget in self.lab_scrollable_frame.winfo_children():
-            widget.destroy()
-            
-        self.lab_values_images.clear()
-        self.load_lab_values_pdf()
-        self.lab_resize_job = None
 
     def _get_scroll_delta(self, event):
         """Helper to calculate smooth scroll delta across Mac, Windows, and Linux."""
@@ -573,30 +719,20 @@ class NBMESimulatorApp:
             messagebox.showinfo("Calculator", "System Calculator integration placeholder.")
 
     def open_lab_values(self):
-        """Toggles the inline Lab Values PDF Panel"""
-        if not os.path.exists(LAB_VALUES_PDF_PATH):
-            messagebox.showerror("File Not Found", f"Could not locate Lab Values at:\n{LAB_VALUES_PDF_PATH}")
-            return
-
+        """Toggles the inline Lab Values Table Panel"""
         if self.lab_values_open:
             self.lab_values_container.pack_forget()
             self.lab_values_open = False
-            self.content_frame.columnconfigure(0, weight=70, uniform="panels")
-            self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+            self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
             self.lab_values_open = True
-            self.content_frame.columnconfigure(0, weight=40, uniform="panels")
-            self.content_frame.columnconfigure(1, weight=60, uniform="panels")
+            self.content_frame.columnconfigure(0, weight=50, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=50, uniform="panels")
             
-            self.root.update_idletasks() 
-            self.last_canvas_width = self.lab_canvas.winfo_width()
-            
-            if not self.lab_values_images:
-                self.load_lab_values_pdf()
-                
-        # --- NEW: Recalculate text box heights after layout changes ---
-        self.root.update_idletasks() # Ensure the new column widths have been fully applied
+        # Recalculate text box heights after layout changes
+        self.root.update_idletasks() 
         if self.questions:
             q = self.questions[self.current_index]
             
@@ -608,36 +744,6 @@ class NBMESimulatorApp:
                 lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
                 if lines_bottom:
                     self.text_question_bottom.config(height=lines_bottom[0] + 1)
-
-    def load_lab_values_pdf(self):
-        """Renders the PDF pages to ImageTk objects to display in the Lab Values panel."""
-        try:
-            doc = fitz.open(LAB_VALUES_PDF_PATH)
-            canvas_width = self.lab_canvas.winfo_width()
-            target_width = max(200, canvas_width - 25) 
-            
-            self.lab_canvas.coords(self.lab_window_id, canvas_width / 2, 0)
-            self.lab_canvas.itemconfig(self.lab_window_id, anchor="n")
-            
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                
-                zoom = (target_width / page.rect.width) * 1.15
-                mat = fitz.Matrix(zoom, zoom)
-                pix = page.get_pixmap(matrix=mat)
-                
-                mode = "RGBA" if pix.alpha else "RGB"
-                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                
-                photo = ImageTk.PhotoImage(img)
-                self.lab_values_images.append(photo) 
-                
-                lbl = tk.Label(self.lab_scrollable_frame, image=photo, bg="white")
-                lbl.pack(pady=5)
-                self._bind_lab_mousewheel(lbl)
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load inline Lab Values PDF:\n{e}")
 
     def confirm_end_test(self):
         if messagebox.askyesno("End Exam", "Are you sure you want to end the exam and enter Review Mode?"):
