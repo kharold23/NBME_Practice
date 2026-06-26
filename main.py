@@ -1383,8 +1383,10 @@ class NBMESimulatorApp:
             
         return processed_rgb
 
-    def load_pdf(self):
-        file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
+    def load_pdf(self, file_path=None): # Added optional parameter
+        if not file_path:
+            # Only open the dialog if no path was provided via CLI
+            file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
             
         try:
