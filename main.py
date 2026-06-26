@@ -1354,7 +1354,7 @@ class NBMESimulatorApp:
                 raw_img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
                 final_img = self.preprocess_for_ocr(raw_img, page_num)
-                final_img.save(f"extracted_images/debug_page_{page_num + 1}.png")
+                # final_img.save(f"extracted_images/debug_page_{page_num + 1}.png")
                 config = '--psm 6'
                 text = pytesseract.image_to_string(final_img, config=config)
 
