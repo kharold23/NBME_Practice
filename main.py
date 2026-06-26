@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+import customtkinter as ctk
 import tkinter.font as tkfont
 import re
 import os
@@ -18,6 +19,10 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
+
+# Configure CustomTkinter default global styling
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
 
 def get_tesseract_cmd():
     if getattr(sys, 'frozen', False):
@@ -54,9 +59,6 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-# Update your configuration line to use this function:
-LAB_VALUES_PDF_PATH = resource_path("lab_values_reference.pdf")
-
 class Question:
     def __init__(self, root, text, options, image=None, inverted=False, instructions=""):
         self.text = text
@@ -77,7 +79,7 @@ class NBMESimulatorApp:
         self.is_test_mode = False
         self.root.title("NBME Self-Assessment Simulator")
         self.root.geometry("1024x768")
-        self.root.configure(bg="white")
+        self.root.configure(fg_color="white")
         
         self.questions = []
         self.current_index = 0
@@ -101,8 +103,8 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
-        self.base_font = tkfont.Font(family="Arial", size=12)
-        self.strike_font = tkfont.Font(family="Arial", size=12, overstrike=1)
+        self.base_font = tkfont.Font(family="Arial", size=14)
+        self.strike_font = tkfont.Font(family="Arial", size=14, overstrike=1)
         
         self.create_widgets()
         self.update_ui()
@@ -190,9 +192,8 @@ class NBMESimulatorApp:
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
         
-        # Configure columns and ENFORCE row stretch so the right panel touches the bottom
-        self.content_frame.columnconfigure(0, weight=70, uniform="panels")
-        self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+        self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+        self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         self.content_frame.rowconfigure(0, weight=1) 
         
         self.left_panel = tk.Frame(self.content_frame, bg=self.color_white)
@@ -207,7 +208,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -220,14 +221,14 @@ class NBMESimulatorApp:
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 12), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 9)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 10)).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
@@ -239,43 +240,270 @@ class NBMESimulatorApp:
         
         tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
         
-        # Added yscrollincrement to enable high-fidelity smooth scrolling
-        self.lab_canvas = tk.Canvas(self.lab_values_container, bg=self.color_white, highlightthickness=1, highlightbackground="#cccccc", yscrollincrement="15")
-        self.lab_scrollable_frame = tk.Frame(self.lab_canvas, bg=self.color_white)
-        
-        # Create Vertical Scrollbar to support zoomed-in content
-        self.lab_scrollbar = ttk.Scrollbar(self.lab_values_container, orient="vertical", command=self.lab_canvas.yview)
-        self.lab_canvas.configure(yscrollcommand=self.lab_scrollbar.set,)
+        self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
+        self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Store the window ID so we can dynamically center it later
-        self.lab_window_id = self.lab_canvas.create_window((0, 0), window=self.lab_scrollable_frame, anchor="n")
-        self.lab_scrollable_frame.bind("<Configure>", lambda e: self.lab_canvas.configure(scrollregion=self.lab_canvas.bbox("all")))
+        # Style the Treeview
+        style = ttk.Style()
+        style.configure("Treeview", font=("Arial", 10), rowheight=25)
+        style.configure("Treeview.Heading", font=("Arial", 10, "bold"))
 
-        # Proper packing order to ensure scrollbars map to the edges
-        self.lab_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.lab_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Setup Table Columns
+        columns = ("Lab Test", "Reference Range", "SI Interval")
+        self.lab_tree = ttk.Treeview(self.lab_tree_frame, columns=columns, show="headings", selectmode="none")
         
-        # Bind the canvas resize event to our debounce re-renderer
-        self.lab_canvas.bind("<Configure>", self.on_lab_canvas_resize)
+        self.lab_tree.heading("Lab Test", text="Lab Test")
+        self.lab_tree.heading("Reference Range", text="Reference Range")
+        self.lab_tree.heading("SI Interval", text="SI Interval")
         
-        # Use dedicated lab mousewheel binding here
-        self._bind_lab_mousewheel(self.lab_canvas)
-        self._bind_lab_mousewheel(self.lab_scrollable_frame)
+        self.lab_tree.column("Lab Test", width=100, anchor=tk.W)
+        self.lab_tree.column("Reference Range", width=120, anchor=tk.W)
+        self.lab_tree.column("SI Interval", width=120, anchor=tk.W)
+
+        # Setup Scrollbar
+        self.lab_tree_scrollbar = ttk.Scrollbar(self.lab_tree_frame, orient=tk.VERTICAL, command=self.lab_tree.yview)
+        self.lab_tree.configure(yscrollcommand=self.lab_tree_scrollbar.set)
+
+        self.lab_tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.lab_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        header_font = tkfont.Font(family="Arial", size=10, weight="bold", underline=True)
+        self.lab_tree.tag_configure("header_row", font=header_font)
+
+        # Insert Filler Data
+        lab_values_data = [
+            ("General Chemistry", "", ""),
+            ("Sodium (Na+)", "136-146 mEq/L", "136-146 mmol/L"), 
+            ("Potassium (K+)", "3.5-5.0 mEq/L", "3.5-5.0 mmol/L"), 
+            ("Chloride (Cl-)", "95-105 mEq/L", "95-105 mmol/L"), 
+            ("Bicarbonate (HCO3-)", "22-28 mEq/L", "22-28 mmol/L"), 
+            ("Urea nitrogen", "7-18 mg/dL", "2.5-6.4 mmol/L"), 
+            ("Creatinine", "0.6-1.2 mg/dL", "53-106 µmol/L"), 
+            ("Glucose (Fasting)", "70-100 mg/dL", "3.8-5.6 mmol/L"), 
+            ("Glucose (Random)", "<140 mg/dL", "<7.77 mmol/L"), 
+            ("Calcium", "8.4-10.2 mg/dL", "2.1-2.6 mmol/L"), 
+            ("Magnesium (Mg2+)", "1.5-2.0 mg/dL", "0.75-1.0 mmol/L"), 
+            ("Phosphorus (inorganic)", "3.0-4.5 mg/dL", "1.0-1.5 mmol/L"), 
+            
+            ("", "", ""),
+            ("Hepatic", "", ""),
+            ("ALT", "10-40 U/L", "10-40 U/L"), 
+            ("AST", "12-38 U/L", "12-38 U/L"), 
+            ("Alkaline phosphatase", "25-100 U/L", "25-100 U/L"), 
+            ("Bilirubin, total", "0.1-1.0 mg/dL", "2-17 µmol/L"), 
+            ("Bilirubin, direct", "0.0-0.3 mg/dL", "0-5 µmol/L"), 
+            ("Proteins, total", "6.0-7.8 g/dL", "60-78 g/L"), 
+            ("Albumin", "3.5-5.5 g/dL", "35-55 g/L"), 
+            ("Globulin", "2.3-3.5 g/dL", "23-35 g/L"), 
+            
+            ("", "", ""),
+            ("Other, serum", "", ""),
+            ("Amylase", "25-125 U/L", "25-125 U/L"), 
+            ("Lipase", "13-60 U/L", "13-60 U/L"), 
+            ("Creatinine clearance", "Male: 97-137 mL/min", "Female: 88-128 mL/min"), 
+            ("", "Female: 88-128 mL/min", "Female: 88-128 mL/min"), 
+            ("Creatine kinase", "Male: 25-90 U/L", "Male: 25-90 U/L"), 
+            ("", "Female: 10-70 U/L", "Female: 10-70 U/L"), 
+            ("Lactate dehydrogenase", "45-200 U/L", "45-200 U/L"), 
+            ("Osmolality", "275-295 mOsmol/kg H2O", "275-295 mOsmol/kg H2O"), 
+            ("Troponin I", "≤0.04 ng/mL", "≤0.04 µg/L"), 
+            ("Uric acid", "3.0-8.2 mg/dL", "0.18-0.48 mmol/L"), 
+
+            ("", "", ""),
+            ("Lipids", "", ""),
+            ("Cholesterol, Total (Normal)", "<200 mg/dL", "<5.2 mmol/L"), 
+            ("Cholesterol, Total (High)", ">240 mg/dL", ">6.2 mmol/L"), 
+            ("Cholesterol, HDL", "40-60 mg/dL", "1.0-1.6 mmol/L"), 
+            ("Cholesterol, LDL", "<160 mg/dL", "<4.2 mmol/L"), 
+            ("Triglycerides (Normal)", "<150 mg/dL", "<1.70 mmol/L"), 
+            ("Triglycerides (Borderline)", "151-199 mg/dL", "1.71-2.25 mmol/L"), 
+
+            ("", "", ""),
+            ("Iron Studies", "", ""),
+            ("Ferritin", "Male: 20-250 ng/mL", "Male: 20-250 µg/L"), 
+            ("", "Female: 10-120 ng/mL", "Female: 10-120 µg/L"), 
+            ("Iron", "Male: 65-175 µg/dL", "Male: 11.6-31.3 µmol/L"), 
+            ("", "Female: 50-170 µg/dL", "Female: 9.0-30.4 μmol/L"), 
+            ("Total iron-binding capacity", "250-400 µg/dL", "44.8-71.6 µmol/L"), 
+            ("Transferrin", "200-360 mg/dL", "2.0-3.6 g/L"), 
+
+            ("", "", ""),
+            ("Endocrine", "", ""),
+            ("FSH", "Male: 4-25 mIU/mL", "Male: 4-25 IU/L"), 
+            ("", "Female: premenopause 4-30 mIU/mL", "Female: premenopause 4-30 IU/L"), 
+            ("", "midcycle peak 10-90 mIU/mL", "midcycle peak 10-90 IU/L"), 
+            ("", "postmenopause 40-250 mIU/mL", "postmenopause 40-250 IU/L"), 
+            ("Luteinizing hormone", "Male: 6-23 mIU/mL", "Male: 6-23 IU/L"), 
+            ("", "Female: follicular phase 5-30 mIU/mL", "Female: follicular phase 5-30 IU/L"), 
+            ("", "midcycle 75-150 mIU/mL", "midcycle 75-150 IU/L"), 
+            ("", "postmenopause 30-200 mIU/mL", "postmenopause 30-200 IU/L"), 
+            ("Growth hormone", "Fasting: <5 ng/mL", "Fasting: <5 µg/L"), 
+            ("", "Provocative stimuli: >7 ng/mL", "Provocative stimuli: >7 µg/L"), 
+            ("Prolactin (hPRL)", "Male: <17 ng/mL", "Male: <17 µg/L"), 
+            ("", "Female: <25 ng/mL", "Female: <25 µg/L"), 
+            ("Cortisol (0800 h)", "5-23 µg/dL", "138-635 nmol/L"), 
+            ("Cortisol (1600 h)", "3-15 µg/dL", "82-413 nmol/L"), 
+            ("Cortisol (2000 h)", "<50% of 0800 h", "Fraction of 0800 h: <0.50"), 
+            ("TSH", "0.4-4.0 μU/mL", "0.4-4.0 mIU/L"), 
+            ("Triiodothyronine (T3) (RIA)", "100-200 ng/dL", "1.5-3.1 nmol/L"), 
+            ("T3 resin uptake", "25%-35%", "0.25-0.35"), 
+            ("Thyroxine (T4)", "5-12 µg/dL", "64-155 nmol/L"), 
+            ("Free T4", "0.9-1.7 ng/dL", "12.0-21.9 pmol/L"), 
+            ("123I uptake", "8%-30% of dose/24 h", "0.08-0.30/24 h"), 
+            ("Intact PTH", "10-60 pg/mL", "10-60 ng/L"), 
+            ("17-Hydroxycorticosteroids", "Male: 3.0-10.0 mg/24 h", "Male: 8.2-27.6 µmol/24 h"), 
+            ("", "Female: 2.0-8.0 mg/24 h", "Female: 5.5-22.0 µmol/24 h"), 
+            ("17-Ketosteroids, total", "Male: 8-20 mg/24 h", "Male: 28-70 μmol/24 h"), 
+            ("", "Female: 6-15 mg/24 h", "Female: 21-52 µmol/24 h"), 
+
+            ("", "", ""),
+            ("Immunoglobulins", "", ""),
+            ("IgA", "76-390 mg/dL", "0.76-3.90 g/L"), 
+            ("IgE", "0-380 IU/mL", "0-380 KIU/L"), 
+            ("IgG", "650-1500 mg/dL", "6.5-15.0 g/L"), 
+            ("IgM", "50-300 mg/dL", "0.5-3.0 g/L"), 
+
+            ("", "", ""),
+            ("Gases, Arterial Blood", "", ""),
+            ("PO2", "75-105 mm Hg", "10.0-14.0 kPa"), 
+            ("PCO2", "33-45 mm Hg", "4.4-5.9 kPa"), 
+            ("pH", "7.35-7.45", "[H+] 36-44 nmol/L"), 
+
+            ("", "", ""),
+            ("Cerebrospinal Fluid", "", ""),
+            ("Cell count", "0-5/mm³", "0-5 x 10^6/L"), 
+            ("Chloride", "118-132 mEq/L", "118-132 mmol/L"), 
+            ("Gamma globulin", "3%-12% total proteins", "0.03-0.12"), 
+            ("Glucose", "40-70 mg/dL", "2.2-3.9 mmol/L"), 
+            ("Pressure", "70-180 mm H2O", "70-180 mm H2O"), 
+            ("Proteins, total", "<40 mg/dL", "<0.40 g/L"), 
+
+            ("", "", ""),
+            ("Hematologic", "", ""),
+            ("Hematocrit", "Male: 41%-53%", "Male: 0.41-0.53"), 
+            ("", "Female: 36%-46%", "Female: 0.36-0.46"), 
+            ("Hemoglobin, blood", "Male: 13.5-17.5 g/dL", "Male: 135-175 g/L"), 
+            ("", "Female: 12.0-16.0 g/dL", "Female: 120-160 g/L"), 
+            ("MCH", "25-35 pg/cell", "0.39-0.54 fmol/cell"), 
+            ("MCHC", "31%-36% Hb/cell", "4.8-5.6 mmol Hb/L"), 
+            ("MCV", "80-100 μm³", "80-100 fL"), 
+            ("Volume, Plasma", "Male: 25-43 mL/kg", "Male: 0.025-0.043 L/kg"), 
+            ("", "Female: 28-45 mL/kg", "Female: 0.028-0.045 L/kg"), 
+            ("Volume, Red cell", "Male: 20-36 mL/kg", "Male: 0.020-0.036 L/kg"), 
+            ("", "Female: 19-31 mL/kg", "Female: 0.019-0.031 L/kg"), 
+            ("Leukocyte count (WBC)", "4500-11,000/mm³", "4.5-11.0 x 10^9/L"), 
+            ("Neutrophils, segmented", "54%-62%", "0.54-0.62"), 
+            ("Neutrophils, bands", "3%-5%", "0.03-0.05"), 
+            ("Lymphocytes", "25%-33%", "0.25-0.33"), 
+            ("Monocytes", "3%-7%", "0.03-0.07"), 
+            ("Eosinophils", "1%-3%", "0.01-0.03"), 
+            ("Basophils", "0%-0.75%", "0.00-0.0075"), 
+            ("Platelet count", "150,000-400,000/mm³", "150-400 x 10^9/L"), 
+
+            ("", "", ""),
+            ("Coagulation", "", ""),
+            ("Partial thromboplastin time", "25-40 seconds", "25-40 seconds"), 
+            ("Prothrombin time (PT)", "11-15 seconds", "11-15 seconds"), 
+            ("D-dimer", "≤250 ng/mL", "≤1.4 nmol/L"), 
+
+            ("", "", ""),
+            ("Other, Hematologic", "", ""),
+            ("Reticulocyte count", "0.5%-1.5%", "0.005-0.015"), 
+            ("Erythrocyte count (RBC)", "Male: 4.3-5.9 million/mm³", "Male: 4.3-5.9 x 10^12/L"), 
+            ("", "Female: 3.5-5.5 million/mm³", "Female: 3.5-5.5 x 10^12/L"), 
+            ("ESR (Westergren)", "Male: 0-15 mm/h", "Male: 0-15 mm/h"), 
+            ("", "Female: 0-20 mm/h", "Female: 0-20 mm/h"), 
+            ("CD4+ T-lymphocyte count", "≥500/mm³", "≥0.5 x 10^9/L"), 
+            
+            ("", "", ""),
+            ("Endocrine (Hemoglobin)", "", ""),
+            ("Hemoglobin A1c", "≤6%", "≤42 mmol/mol"), 
+
+            ("", "", ""),
+            ("Urine", "", ""),
+            ("Calcium", "100-300 mg/24 h", "2.5-7.5 mmol/24 h"), 
+            ("Osmolality", "50-1200 mOsmol/kg H2O", "50-1200 mOsmol/kg H2O"), 
+            ("Oxalate", "8-40 µg/mL", "90-445 µmol/L"), 
+            ("Proteins, total", "<150 mg/24 h", "<0.15 g/24 h"), 
+
+            ("", "", ""),
+            ("Body Mass Index (BMI)", "", ""),
+            ("Adult BMI", "19-25 kg/m²", "") 
+        ]
+        
+        for item in lab_values_data:
+            # Check if the 2nd and 3rd columns (Reference Range and SI Interval) are empty
+            if item[1] == "" and item[2] == "":
+                self.lab_tree.insert("", tk.END, values=item, tags=("header_row",))
+            else:
+                self.lab_tree.insert("", tk.END, values=item)
 
         # --- Bottom Bar ---
-        self.bottom_frame = tk.Frame(self.root, bg=self.color_blue, height=60)
+        self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=65)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.bottom_frame.pack_propagate(False)
-        
-        btn_load = tk.Button(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
-                             bg=self.color_white, fg=self.color_black, relief=tk.FLAT, font=("Arial", 10, "bold"))
-        btn_load.pack(side=tk.LEFT, padx=20, pady=15)
 
-        controls = ["Next", "Previous", "Review", "Lab Values", "Calculator", "Pause"]
-        for ctrl in controls:
-            btn = tk.Button(self.bottom_frame, text=ctrl, command=lambda c=ctrl: self.handle_bottom_action(c),
-                            bg=self.color_white, fg=self.color_black, relief=tk.FLAT, font=("Arial", 10, "bold"))
-            btn.pack(side=tk.RIGHT, padx=10, pady=15)
+        self.footer_images = {}
+
+        def load_btn_image(filename, size=(26, 26)):
+            """Helper to load and map a PNG icon into a CTkImage for auto-scaling scaling on macOS."""
+            macos_dir = os.path.dirname(sys.executable)
+            contents_dir = os.path.dirname(macos_dir) # Moves up one level to /Contents
+        
+            # Point to the Resources folder instead
+            assets_path = os.path.join(contents_dir, 'Resources', 'assets')
+            path = os.path.join(assets_path, filename)
+            if os.path.exists(path):
+                try:
+                    img = Image.open(path)
+                    photo = ctk.CTkImage(light_image=img, dark_image=img, size=size)
+                    self.footer_images[filename] = photo  
+                    return photo
+                except Exception as e:
+                    print(f"Warning: Could not load image {filename}: {e}")
+            return None
+        
+        # Center: Native CustomTkinter load button
+        img_load = load_btn_image("load.png")
+        btn_load = ctk.CTkButton(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
+                                 fg_color=self.color_white, text_color=self.color_blue, 
+                                 hover_color="#1a3b61", font=("Arial", 9, "bold"), 
+                                 width=70, height=30, compound="top")
+        if img_load:
+            btn_load.configure(image=img_load)
+        btn_load.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Left-Side Controls (CustomTkinter)
+        left_controls = [
+            ("Previous", "Previous", "previous.png"), 
+            ("Next", "Next", "next.png")
+        ]
+        for text, action, icon_file in left_controls:
+            img = load_btn_image(icon_file)
+            btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
+                                fg_color=self.color_blue, text_color=self.color_white, 
+                                hover_color="#1a3b61", font=("Arial", 9, "bold"), 
+                                width=50, height=55, compound="top")
+            if img:
+                btn.configure(image=img)
+            btn.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Right-Side Controls (CustomTkinter)
+        right_controls = [
+            ("Pause", "Pause", "pause.png"),
+            ("Help", "Help", "help.png"),
+            ("Review", "Review", "review.png"),
+            ("Lab Values", "Lab Values", "lab_values.png")
+        ]
+        for text, action, icon_file in right_controls:
+            img = load_btn_image(icon_file)
+            btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
+                                fg_color=self.color_blue, text_color=self.color_white, 
+                                hover_color="#1a3b61", font=("Arial", 9, "bold"), 
+                                width=50, height=55, compound="top")
+            if img:
+                btn.configure(image=img)
+            btn.pack(side=tk.RIGHT, padx=5, pady=5)
 
     def _on_main_canvas_configure(self, event):
         """Forces the content window to stretch to the bottom if it's shorter than the visible canvas."""
@@ -304,41 +532,6 @@ class NBMESimulatorApp:
                     rb.config(wraplength=wrap_width)
                 except tk.TclError:
                     pass
-
-    def on_lab_canvas_resize(self, event):
-        """Listens to the canvas resizing and triggers a debounced re-render of the PDF."""
-        if not self.lab_values_open:
-            return
-            
-        new_width = event.width
-        # Update centering immediately while dragging window
-        self.lab_canvas.coords(self.lab_window_id, new_width / 2, 0)
-        
-        # Ignore minor pixel fluctuations to prevent endless loops
-        if abs(self.last_canvas_width - event.width) < 15:
-            return
-            
-        self.last_canvas_width = event.width
-        
-        # Cancel the previous pending render job if the user is still dragging the window
-        if self.lab_resize_job is not None:
-            self.root.after_cancel(self.lab_resize_job)
-            
-        # Schedule a new render job 400ms after the user stops dragging
-        self.lab_resize_job = self.root.after(400, self.reload_lab_values_pdf)
-
-    def reload_lab_values_pdf(self):
-        """Clears the existing images and forces a fresh render at the new width."""
-        if not self.lab_values_open:
-            return
-            
-        # Destroy the old labels to prevent memory bloat
-        for widget in self.lab_scrollable_frame.winfo_children():
-            widget.destroy()
-            
-        self.lab_values_images.clear()
-        self.load_lab_values_pdf()
-        self.lab_resize_job = None
 
     def _get_scroll_delta(self, event):
         """Helper to calculate smooth scroll delta across Mac, Windows, and Linux."""
@@ -416,7 +609,7 @@ class NBMESimulatorApp:
         lbl_full.bind("<Button-1>", lambda e: self.full_img_win.destroy())
 
     def start_timer(self):
-        self.lbl_time_remaining.config(fg=self.color_white) # Reset color on start
+        self.lbl_time_remaining.config(fg=self.color_white) 
         self.timer_running = True
         self.update_timer()
 
@@ -455,19 +648,43 @@ class NBMESimulatorApp:
             self.timer_job = self.root.after(1000, self.update_timer)
 
     def toggle_pause(self):
-        if not self.timer_running or self.review_mode:
+        # Allow opening if timer isn't running, but prevent in review mode
+        if self.review_mode:
             return 
+            
+        # Prevent opening multiple pause windows if one already exists
+        if hasattr(self, 'pause_window') and self.pause_window and self.pause_window.winfo_exists():
+            return
+
         self.timer_running = False 
-        self.pause_window = tk.Toplevel(self.root)
+        self.pause_window = ctk.CTkToplevel(self.root)
         self.pause_window.title("Exam Paused")
-        self.pause_window.geometry("400x200")
-        self.pause_window.configure(bg=self.color_blue)
+        
+        # --- Center the pause window relative to the app window ---
+        window_width = 400
+        window_height = 200
+        
+        # Get parent window position and size
+        root_x = self.root.winfo_rootx()
+        root_y = self.root.winfo_rooty()
+        root_width = self.root.winfo_width()
+        root_height = self.root.winfo_height()
+        
+        # Calculate center coordinates
+        pos_x = root_x + (root_width // 2) - (window_width // 2)
+        pos_y = root_y + (root_height // 2) - (window_height // 2)
+        
+        self.pause_window.geometry(f"{window_width}x{window_height}+{pos_x}+{pos_y}")
+        # ----------------------------------------------------------
+        
+        self.pause_window.configure(fg_color=self.color_blue)
         self.pause_window.transient(self.root)
         self.pause_window.grab_set() 
-        tk.Label(self.pause_window, text="Exam Paused", bg=self.color_blue, fg=self.color_white, 
-                 font=("Arial", 18, "bold")).pack(pady=(50, 20))
-        tk.Button(self.pause_window, text="Resume", command=self.resume_timer, 
-                  bg="white", font=("Arial", 12)).pack()
+        
+        ctk.CTkLabel(self.pause_window, text="Exam Paused", text_color=self.color_white, 
+                     font=("Arial", 18, "bold")).pack(pady=(50, 20))
+        ctk.CTkButton(self.pause_window, text="Resume", command=self.resume_timer, 
+                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=("Arial", 12)).pack()
 
     def resume_timer(self):
         self.pause_window.destroy()
@@ -523,11 +740,138 @@ class NBMESimulatorApp:
             else:
                 self.marked_questions.discard(self.current_index)
 
+    def show_help_pdf(self):
+        """Creates an in-app window to render and display a Help PDF dynamically sized to the window."""
+        if hasattr(self, 'help_window') and self.help_window and self.help_window.winfo_exists():
+            self.help_window.lift()
+            return
+
+        self.help_window = ctk.CTkToplevel(self.root)
+        self.help_window.title("Help Documentation")
+        self.help_window.geometry("850x700")
+        self.help_window.configure(fg_color=self.color_white)
+        self.help_window.transient(self.root)
+        
+        macos_dir = os.path.dirname(sys.executable)
+        contents_dir = os.path.dirname(macos_dir)
+        assets_path = os.path.join(contents_dir, 'Resources', 'assets')
+        pdf_path = os.path.join(assets_path, "HelpDocument.pdf" )
+        
+        if not os.path.exists(pdf_path):
+            pdf_path = filedialog.askopenfilename(
+                title="Select Help PDF", 
+                filetypes=[("PDF files", "*.pdf")]
+            )
+            if not pdf_path:
+                self.help_window.destroy()
+                return
+                
+        try:
+            self.help_doc = fitz.open(pdf_path)
+            
+            # --- Layout Setup ---
+            self.help_canvas = tk.Canvas(self.help_window, bg=self.color_white, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(self.help_window, orient="vertical", command=self.help_canvas.yview)
+            self.help_scroll_frame = tk.Frame(self.help_canvas, bg=self.color_white)
+            
+            self.help_canvas_window = self.help_canvas.create_window((0, 0), window=self.help_scroll_frame, anchor="n")
+            self.help_canvas.configure(yscrollcommand=scrollbar.set)
+            
+            self.help_canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # --- Scroll Logic (Matching the Lab Values implementation) ---
+            def _on_help_mousewheel(event):
+                bbox = self.help_canvas.bbox("all")
+                # Prevents scrolling if content is smaller than window height
+                if not bbox or bbox[3] <= self.help_canvas.winfo_height():
+                    return "break"
+                self.help_canvas.yview_scroll(self._get_scroll_delta(event), "units")
+                return "break"
+
+            def _bind_help_mousewheel(widget):
+                widget.bind("<MouseWheel>", _on_help_mousewheel)
+                widget.bind("<Button-4>", _on_help_mousewheel)
+                widget.bind("<Button-5>", _on_help_mousewheel)
+
+            _bind_help_mousewheel(self.help_canvas)
+            _bind_help_mousewheel(self.help_scroll_frame)
+
+            # --- Dynamic PDF Resizing ---
+            self.help_pdf_images = []
+            self.last_help_width = 0
+            self.help_resize_job = None
+            
+            def render_pdf_pages(target_width):
+                """Renders pages with a scale calculated to fit the target width."""
+                self.help_pdf_images.clear()
+                for widget in self.help_scroll_frame.winfo_children():
+                    widget.destroy()
+                
+                # Account for scrollbar and padding in width calculation
+                usable_width = target_width - 50 
+                
+                for page_num in range(len(self.help_doc)):
+                    page = self.help_doc.load_page(page_num)
+                    scale = usable_width / page.rect.width
+                    if scale <= 0: scale = 1.0  
+                    
+                    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale)) 
+                    mode = "RGBA" if pix.alpha else "RGB"
+                    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                    
+                    photo = ImageTk.PhotoImage(img)
+                    self.help_pdf_images.append(photo)
+                    
+                    lbl = tk.Label(self.help_scroll_frame, image=photo, bg=self.color_white, bd=1, relief="solid")
+                    lbl.pack(pady=10, padx=10)
+                    
+                    # Ensure the image itself allows scrolling when hovered
+                    _bind_help_mousewheel(lbl) 
+                    
+                self.help_window.update_idletasks()
+                self.help_canvas.configure(scrollregion=self.help_canvas.bbox("all"))
+
+            def on_canvas_configure(event):
+                """Debounced function to re-render PDF if the window is resized."""
+                self.help_canvas.itemconfig(self.help_canvas_window, width=event.width)
+                
+                # Only re-render if the width has changed significantly to avoid lag
+                if abs(event.width - self.last_help_width) > 30:
+                    if self.help_resize_job:
+                        self.help_window.after_cancel(self.help_resize_job)
+                    self.last_help_width = event.width
+                    
+                    # Wait 300ms after the user stops dragging the window to render the new quality
+                    self.help_resize_job = self.help_window.after(300, lambda: render_pdf_pages(event.width))
+
+            self.help_canvas.bind("<Configure>", on_canvas_configure)
+            
+            # --- Initial Render ---
+            initial_width = self.help_window.winfo_width()
+            if initial_width < 100: 
+                initial_width = 850 
+            render_pdf_pages(initial_width)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load PDF:\n{e}")
+            if self.help_window.winfo_exists():
+                self.help_window.destroy()
+
     def handle_bottom_action(self, action):
+        # 1. Process "Help" BEFORE the guard clause so it works at any time
+        if action == "Help":
+            self.show_help_pdf()
+            return
+        elif action == "Lab Values":
+            self.open_lab_values()
+            return
+
+        # 2. Guard clause for all other exam-related actions
         if not self.questions: return
         if action == "Next":
             if self.current_index < len(self.questions) - 1:
-                self.save_current_state() # Add here
+                self.save_current_state()
                 self.current_index += 1
                 self.update_ui()
             else:
@@ -536,81 +880,40 @@ class NBMESimulatorApp:
                         self.enter_review_mode()
         elif action == "Previous":
             if self.current_index > 0:
-                self.save_current_state() # Add here
+                self.save_current_state()
                 self.current_index -= 1
                 self.update_ui()
         elif action == "Pause":
             self.toggle_pause()
-        elif action == "Lab Values":
-            self.open_lab_values()
         elif action == "Review":
             self.open_review_window()
 
     def open_lab_values(self):
-        """Toggles the inline Lab Values PDF Panel"""
-        if not os.path.exists(LAB_VALUES_PDF_PATH):
-            messagebox.showerror("File Not Found", f"Could not locate Lab Values at:\n{LAB_VALUES_PDF_PATH}")
-            return
-
+        """Toggles the inline Lab Values Table Panel"""
         if self.lab_values_open:
-            # Hide the panel
             self.lab_values_container.pack_forget()
             self.lab_values_open = False
-            # Revert to 70/30 split
-            self.content_frame.columnconfigure(0, weight=70, uniform="panels")
-            self.content_frame.columnconfigure(1, weight=30, uniform="panels")
+            self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
-            # Show the panel
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
             self.lab_values_open = True
-            # Update to 50/50 split
-            self.content_frame.columnconfigure(0, weight=40, uniform="panels")
-            self.content_frame.columnconfigure(1, weight=60, uniform="panels")
+            self.content_frame.columnconfigure(0, weight=50, uniform="panels")
+            self.content_frame.columnconfigure(1, weight=50, uniform="panels")
             
-            # Force Tkinter to recalculate the GUI layout to physically reflect the split 
-            self.root.update_idletasks() 
+        # Recalculate text box heights after layout changes
+        self.root.update_idletasks() 
+        if self.questions:
+            q = self.questions[self.current_index]
             
-            # Establish baseline width
-            self.last_canvas_width = self.lab_canvas.winfo_width()
-            
-            # Load the PDF images if they haven't been loaded yet
-            if not self.lab_values_images:
-                self.load_lab_values_pdf()
-
-    def load_lab_values_pdf(self):
-        """Renders the PDF pages to ImageTk objects to display in the Lab Values panel."""
-        try:
-            doc = fitz.open(LAB_VALUES_PDF_PATH)
-            
-            # Dynamically fetch the real width of the canvas, subtracting ~25px for the scrollbar
-            canvas_width = self.lab_canvas.winfo_width()
-            target_width = max(200, canvas_width - 25) 
-            
-            # Dynamically recenter the frame inside the canvas
-            self.lab_canvas.coords(self.lab_window_id, canvas_width / 2, 0)
-            self.lab_canvas.itemconfig(self.lab_window_id, anchor="n")
-            
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
+            lines_top = self.text_question.count("1.0", "end", "displaylines")
+            if lines_top:
+                self.text_question.config(height=lines_top[0] + 1)
                 
-                # Apply zoom factor
-                zoom = (target_width / page.rect.width) * 1.15
-                mat = fitz.Matrix(zoom, zoom)
-                pix = page.get_pixmap(matrix=mat)
-                
-                mode = "RGBA" if pix.alpha else "RGB"
-                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                
-                photo = ImageTk.PhotoImage(img)
-                self.lab_values_images.append(photo) # Keep reference to avoid garbage collection
-                
-                lbl = tk.Label(self.lab_scrollable_frame, image=photo, bg="white")
-                lbl.pack(pady=5)
-                # Apply dedicated scroll binding to the rendered images
-                self._bind_lab_mousewheel(lbl)
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load inline Lab Values PDF:\n{e}")
+            if q.inverted:
+                lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
+                if lines_bottom:
+                    self.text_question_bottom.config(height=lines_bottom[0] + 1)
 
     def confirm_end_test(self):
         if messagebox.askyesno("End Exam", "Are you sure you want to end the exam and enter Review Mode?"):
@@ -624,29 +927,28 @@ class NBMESimulatorApp:
             self.review_window = None
             return
 
-        self.review_window = tk.Toplevel(self.root)
+        self.review_window = ctk.CTkToplevel(self.root)
         self.review_window.title("Review Options")
         self.review_window.geometry("700x500")
-        self.review_window.configure(bg=self.color_white)
+        self.review_window.configure(fg_color=self.color_white)
         self.review_window.transient(self.root)
         
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
-        tk.Label(self.review_window, text=mode_text, bg=self.color_white, font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
+        ctk.CTkLabel(self.review_window, text=mode_text, text_color=self.color_black, 
+                     font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
         
-        export_btn = tk.Button(self.review_window, text="Export Exam (PDF)", 
-                               command=self.export_to_pdf, bg=self.color_white, fg=self.color_blue, 
-                               font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
+        export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
+                                   command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
+                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
         export_btn.pack(pady=(0, 10))
 
-        # --- Add "End Test" button during active exam ---
         if not self.review_mode:
-            end_btn = tk.Button(self.review_window, text="End Test", 
-                                command=self.confirm_end_test, bg=self.color_white, fg=self.color_blue, 
-                                font=("Arial", 10, "bold"), cursor="hand2", relief=tk.FLAT)
+            end_btn = ctk.CTkButton(self.review_window, text="End Test", 
+                                    command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
+                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
             end_btn.pack(pady=(0, 10))
-        # -----------------------------------------------------
 
-        canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0)
+        canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.review_window, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg=self.color_white)
 
@@ -668,12 +970,14 @@ class NBMESimulatorApp:
             row = i % rows_per_col
             col = i // rows_per_col
             
-            lbl_btn = tk.Label(scrollable_frame, text=btn_text, bg=bg_color, font=("Arial", 10, "bold"), width=10, height=2, relief=tk.RAISED, cursor="hand2")
-            lbl_btn.bind("<Button-1>", lambda e, idx=i: self.goto_question(idx, self.review_window))
+            lbl_btn = ctk.CTkButton(scrollable_frame, text=btn_text, fg_color=bg_color, text_color="black",
+                                    hover_color="#7ae694" if is_answered else "#e66e78",
+                                    font=("Arial", 10, "bold"), width=70, height=35,
+                                    command=lambda idx=i: self.goto_question(idx, self.review_window))
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
     def goto_question(self, index, review_window):
-        self.save_current_state() # Add this at the top
+        self.save_current_state()
         self.current_index = index
         self.update_ui()
         review_window.destroy()
@@ -855,7 +1159,7 @@ class NBMESimulatorApp:
         # 5. Handle Image Preview
         if q.image:
             thumb = q.image.copy()
-            thumb.thumbnail((300, 450), Image.Resampling.LANCZOS)
+            thumb.thumbnail((100, 150), Image.Resampling.LANCZOS)
             self.thumb_photo = ImageTk.PhotoImage(thumb) 
             self.lbl_preview.config(image=self.thumb_photo, text="")
         else:
@@ -873,7 +1177,7 @@ class NBMESimulatorApp:
             rb = tk.Radiobutton(self.options_frame, text=opt, 
                                 variable=q.selected_option, value=opt,
                                 bg=self.color_white, fg="black", font=self.base_font, 
-                                disabledforeground="black", # Prevents text from graying out
+                                disabledforeground="black", 
                                 activebackground=self.color_white, highlightthickness=0, 
                                 state=rb_state, justify=tk.LEFT, wraplength=initial_wrap_width)
             
@@ -886,15 +1190,50 @@ class NBMESimulatorApp:
             
             rb.pack(anchor="w", pady=5)
             self._bind_mousewheel(rb)
-            rb.bind("<Alt-Button-1>", self.toggle_strikeout)
-            rb.bind("<Option-Button-1>", self.toggle_strikeout)
+            rb.bind("<Control-Button-1>", self.toggle_strikeout)
             self.radio_buttons.append(rb)
             
         # Reset scroll to top
         self.main_canvas.yview_moveto(0)
 
+    def _fill_missing_options(self, options):
+        """
+        Evaluates a list of options (e.g., ['A) text', 'C) text']) and fills in 
+        missing letters up to the highest detected option with an error placeholder.
+        """
+        if not options:
+            return []
+            
+        letters_found = []
+        for opt in options:
+            match = re.match(r'^([A-Z])\)', opt.strip())
+            if match:
+                letters_found.append(match.group(1))
+                
+        if not letters_found:
+            return options
+            
+        max_letter = max(letters_found)
+        complete_options = []
+        
+        # Iterate from 'A' up to the highest letter found
+        for i in range(ord('A'), ord(max_letter) + 1):
+            expected_letter = chr(i)
+            
+            # Search for an existing option that matches the expected letter
+            found_opt = next((opt for opt in options if opt.strip().startswith(f"{expected_letter})")), None)
+            
+            if found_opt:
+                complete_options.append(found_opt)
+            else:
+                # Inject fallback if the OCR missed this letter
+                complete_options.append(f"{expected_letter}) [OCR error, see reference]")
+                
+        return complete_options
+
     def parse_text_to_questions(self, raw_pages):
         parsed_questions = []
+        unparsed_pages = []
         pages_with_questions = set()
         inverted_q_remaining = 0
 
@@ -906,8 +1245,8 @@ class NBMESimulatorApp:
             
             # Reset options for each page to avoid carrying over previous options
             options = []
-
-            # Correct common OCR mistake
+            parsed_successfully = False
+            
             clean_text = re.sub(r'[1|lI]\)', 'I)', clean_text)
             
             # Detect Inverted Format
@@ -930,51 +1269,53 @@ class NBMESimulatorApp:
                     options_messy = re.split(r'(?=[A-Z]\))', answers_block)
                     options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                     options.sort()
+                    
+                    # Fill in missing answer choices
+                    options = self._fill_missing_options(options)
 
                     if options:
                         parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=True, instructions=instructions))
                         pages_with_questions.add(page_num)
+                        parsed_successfully = True
                 
                 inverted_q_remaining -= 1
-                continue
             
-            # --- Standard Format Path ---
-            match = re.search(r'^(\d+)\.', clean_text, re.DOTALL)
-            
-            # Split point: The first instance of "A)"
-            split_point = re.search(r'A\)', clean_text)
-            if split_point:
-                q_text = clean_text[:split_point.start()]
-                q_text = q_text.replace('\n', ' ')
+            # Handle Standard questions
+            else:
+                match = re.search(r'^(\d+)\.', clean_text, re.DOTALL)
+                split_point = re.search(r'A\)', clean_text)
+                if split_point:
+                    q_text = clean_text[:split_point.start()]
+                    q_text = q_text.replace('\n', ' ')
 
-                answers_block = clean_text[split_point.start():]
-                options_messy = re.split(r'(?=[A-Z]\))', answers_block)
-                options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
-                options.sort()
+                    answers_block = clean_text[split_point.start():]
+                    options_messy = re.split(r'(?=[A-Z]\))', answers_block)
+                    options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
+                    options.sort()
+                    
+                    # Fill in missing answer choices
+                    options = self._fill_missing_options(options)
 
-            if options:
-                parsed_questions.append(Question(self.root,q_text, options, image=page_image, inverted=False))
+                if options:
+                    parsed_questions.append(Question(self.root, q_text, options, image=page_image, inverted=False))
+                    pages_with_questions.add(page_num)
+                    parsed_successfully = True
+
+            # Fallback for unparsed pages: 1-to-1 page/question matching
+            if not parsed_successfully:
+                fallback_text = "[OCR unable to process this question, please see reference image]"
+                # Generate options A through Z
+                fallback_options = [f"{chr(i)})" for i in range(65, 91)] 
+                unparsed_pages.append(page_num)
+                parsed_questions.append(Question(self.root, fallback_text, fallback_options, image=page_image, inverted=False))
                 pages_with_questions.add(page_num)
-                
-        # Calculate which pages didn't yield any questions
-        all_pages = [p["page_num"] for p in raw_pages]
-        unparsed_pages = [p for p in all_pages if p not in pages_with_questions]
                 
         return parsed_questions, unparsed_pages
 
     def preprocess_for_ocr(self, img, page_num=None):
-        """
-        1. Dynamically crops out blue headers/footers.
-        2. Redacts large photos/charts using a Mid-Tone mask to prevent OCR artifacts.
-        3. Washes out light gray backgrounds for clean text reading.
-        """
-        # ==========================================
-        # STEP 1: DYNAMIC CROPPING (Remove Headers)
-        # ==========================================
         img_array = np.array(img.convert('RGB'))
         gray_crop = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         
-        # Threshold: White stays white, dark blue becomes black
         _, thresh_crop = cv2.threshold(gray_crop, 200, 255, cv2.THRESH_BINARY)
         contours_crop, _ = cv2.findContours(thresh_crop, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
@@ -984,36 +1325,20 @@ class NBMESimulatorApp:
             width, height = img.size
             img = img.crop((0, y, width, y + h))
 
-        # ==========================================
-        # STEP 2: DYNAMIC CHART REDACTION (Updated)
-        # ==========================================
-
         crop_array = np.array(img.convert('RGB'))
         img_bgr = cv2.cvtColor(crop_array, cv2.COLOR_RGB2BGR)
-        
-        # Convert to grayscale for detection
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         
-        # 1. Apply a Gaussian blur to smooth out text and minor noise
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        
-        # 2. Canny Edge Detection
-        # Finds boundaries based on gradients. (30, 100) are low thresholds to catch faint edges.
         edges = cv2.Canny(blurred, 20, 80)
         
-        # 3. Dilation
-        # Thicken the detected edges to close gaps, creating a solid boundary for the contour
         kernel = np.ones((5, 5), np.uint8)
         connected_edges = cv2.dilate(edges, kernel, iterations=2)
-        
-        # Find contours using the connected edges
         contours, _ = cv2.findContours(connected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Get image dimensions to calculate the max size of the page
         h_img, w_img = img_bgr.shape[:2]
         page_area = h_img * w_img
 
-        # Don't redact anything that covers more than 80% or less than 30% of the page 
         min_chart_area = page_area * 0.1
         max_chart_area = page_area * 0.8
         
@@ -1021,61 +1346,63 @@ class NBMESimulatorApp:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
             if min_chart_area < area < max_chart_area:
-                cv2.rectangle(img_bgr, (x-1, y-1), (x+w+2, y+h+2), (255, 255, 255), -1)
+                roi_gray = gray[y:y+h, x:x+w]
+                
+                # --- CHECK 1: Adaptive Pixel Density (Catches Photos, CTs, Smears) ---
+                # Otsu automatically finds the optimal threshold to separate foreground from background
+                _, otsu_roi = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+                
+                # Text paragraphs typically have 5-15% dark pixels. Photos and scans are much denser.
+                fg_ratio = cv2.countNonZero(otsu_roi) / area
+                is_image = fg_ratio > 0.22
+                
+                # --- CHECK 2: Structural Morphology (Catches Line Graphs, Visual Fields) ---
+                # If it's sparse (like a line graph), we check the size of the shapes inside.
+                if not is_image:
+                    _, binary_roi = cv2.threshold(roi_gray, 200, 255, cv2.THRESH_BINARY_INV)
+                    internal_contours, _ = cv2.findContours(binary_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    for ic in internal_contours:
+                        _, _, iw, ih = cv2.boundingRect(ic)
+                        # If a single connected shape (like a circle or curve) spans >40% of both the width and height.
+                        # Text letters never span this much of a full paragraph block.
+                        if iw > w * 0.4 and ih > h * 0.4:
+                            is_image = True
+                            break
+                            
+                if is_image:
+                    pad = 15
+                    cv2.rectangle(img_bgr, 
+                                  (max(0, x - pad), max(0, y - pad)), 
+                                  (min(w_img, x + w + pad), min(h_img, y + h + pad)), 
+                                  (255, 255, 255), -1)
 
-        # ==========================================
-        # STEP 2.5: DEBUG SAVE (Post-Redaction Snapshot)
-        # ==========================================
-        # Convert the modified BGR array back to an RGB PIL Image for saving
-        # debug_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-        
-        # try:
-        #     debug_dir = "debug_output"
-        #     if not os.path.exists(debug_dir):
-        #         os.makedirs(debug_dir)
-        #     p_str = f"page_{page_num}" if page_num is not None else "test"
-        #     # Saved as _redacted to distinguish it clearly
-        #     debug_pil.save(os.path.join(debug_dir, f"{p_str}_redacted.png")) 
-        # except Exception as e:
-        #     print(f"Debug save failed: {e}")
-
-        # ==========================================
-        # STEP 3: CONTRAST ENHANCEMENT FOR OCR
-        # ==========================================
         final_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)).convert("L")
-        
-        # Wash out faint artifacts to pure white, keep text dark
         final_pil = final_pil.point(lambda p: 255 if p > 120 else p)
         processed_rgb = final_pil.convert("RGB")
             
         return processed_rgb
 
-    def load_pdf(self, file_path=None): # Added optional parameter
-        if not file_path:
-            # Only open the dialog if no path was provided via CLI
-            file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
+    def load_pdf(self):
+        file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
             
         try:
-            # Initialize PDF and Progress Window
             doc = fitz.open(file_path)
             total_pages = len(doc)
             
-            # Create Progress Window
-            progress_win = tk.Toplevel(self.root)
+            progress_win = ctk.CTkToplevel(self.root)
             progress_win.title("Processing")
             progress_win.geometry("300x130")
             progress_win.transient(self.root)
-            progress_win.grab_set() # Block interaction with main window while loading
+            progress_win.grab_set() 
             
-            # --- FEATURE 2: Handle OCR Cancellation ---
             self.cancel_ocr = False
             def on_close_progress():
                 self.cancel_ocr = True
                 progress_win.destroy()
                 
             progress_win.protocol("WM_DELETE_WINDOW", on_close_progress)
-            # ----------------------------------------
             
             tk.Label(progress_win, text="Reading and OCRing pages...").pack(pady=10)
             progress_bar = ttk.Progressbar(progress_win, orient=tk.HORIZONTAL, length=250, mode='determinate', maximum=total_pages)
@@ -1090,13 +1417,11 @@ class NBMESimulatorApp:
                 if self.cancel_ocr:
                     messagebox.showinfo("Cancelled", "PDF processing was cancelled.")
                     return
-                # -------------------------------------------
                 
                 # --- Update UI ---
                 progress_bar['value'] = page_num + 1
                 progress_lbl.config(text=f"Processing page {page_num + 1} of {total_pages}")
-                self.root.update() # Force the GUI to redraw/refresh
-                # -----------------
+                self.root.update() 
 
                 # Generate original pixmap (Keep this for the GUI/Display)
                 mat = fitz.Matrix(2.0, 2.0)
@@ -1139,23 +1464,17 @@ class NBMESimulatorApp:
                 self.time_left = len(self.questions) * 90
                 self.update_ui()
                 
-                # --- FEATURE 1: Post-processing Summary & Start Prompt ---
-                unparsed_str = f"Pages with no new questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
+                unparsed_str = f"Pages with no questions detected:\n{', '.join(map(str, unparsed_pages))}" if unparsed_pages else ""
                 msg = f"Successfully processed {len(self.questions)} questions.\n{unparsed_str}\n\nWould you like to start the exam timer?"
                 
-                if self.is_test_mode:
-                    start_exam = False 
-                else:
-                    start_exam = messagebox.askyesno("Processing Complete", msg)
-                
+                start_exam = messagebox.askyesno("Processing Complete", msg)
                 if start_exam:
                     self.start_timer()
                 else:
-                    # Format time visually without starting the loop
                     hrs, remainder = divmod(self.time_left, 3600)
                     mins, secs = divmod(remainder, 60)
                     self.lbl_time_remaining.config(text=f"{hrs} hr {mins:02d} min {secs:02d} sec (Paused)")
-                # ---------------------------------------------------------
+                    self.toggle_pause()
             else:
                 messagebox.showwarning("Warning", "Could not parse any questions.")
 
@@ -1165,7 +1484,7 @@ class NBMESimulatorApp:
             messagebox.showerror("Error", f"Failed to read file: {e}")
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = NBMESimulatorApp(root)
     
     # Check for CLI arguments for CI/CD testing

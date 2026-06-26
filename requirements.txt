@@ -1,6 +1,0 @@
-PyMuPDF
-pytesseract
-Pillow
-opencv-python
-numpy
-reportlab
