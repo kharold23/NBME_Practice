@@ -506,22 +506,45 @@ class NBMESimulatorApp:
             btn.pack(side=tk.RIGHT, padx=5, pady=5)
 
     def _on_main_canvas_configure(self, event):
-        """Forces the content window to stretch to the bottom if it's shorter than the visible canvas."""
+        """Forces the content window to match the canvas width and handle scrolling."""
         self.main_canvas.itemconfig(self.canvas_window, width=event.width)
-        req_height = self.scrollable_main_frame.winfo_reqheight()
-        if req_height < event.height:
-            self.main_canvas.itemconfig(self.canvas_window, height=event.height)
-        else:
-            self.main_canvas.itemconfig(self.canvas_window, height="")
+        # Update scrollregion whenever the canvas size changes
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
 
     def _on_scrollable_frame_configure(self, event):
-        """Updates scroll region and enforces height constraints dynamically."""
+        """Updates scroll region and ensures the canvas window expands to fit contents."""
+        # 1. Update the scroll region to the total size of the contents
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        
+        # 2. Allow the inner window to be at least the size of the canvas
         canvas_height = self.main_canvas.winfo_height()
         if event.height < canvas_height:
             self.main_canvas.itemconfig(self.canvas_window, height=canvas_height)
         else:
+            # 3. If content is taller than the canvas, allow the window to expand[cite: 1]
             self.main_canvas.itemconfig(self.canvas_window, height=event.height)
+
+    def _adjust_text_height(self):
+        self.root.update_idletasks()
+        
+        # 1. Adjust text boxes (your existing logic)
+        if self.text_question.winfo_ismapped():
+            lines_top = self.text_question.count("1.0", "end", "displaylines")
+            if lines_top: self.text_question.config(height=lines_top[0] + 1)
+                
+        if hasattr(self, 'text_question_bottom') and self.text_question_bottom.winfo_ismapped():
+            lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
+            if lines_bottom: self.text_question_bottom.config(height=lines_bottom[0] + 1)
+        
+        # 2. FORCE the scrollable frame to recognize the new height of the options_frame
+        self.scrollable_main_frame.update_idletasks()
+        
+        # 3. Explicitly update the canvas window height to match the total content reqheight
+        total_content_height = self.scrollable_main_frame.winfo_reqheight()
+        self.main_canvas.itemconfig(self.canvas_window, height=total_content_height)
+        
+        # 4. Refresh the scroll region
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
 
     def on_left_panel_configure(self, event):
         """Dynamically adjusts the text wrapping length of radio buttons to prevent overlap."""
@@ -532,6 +555,9 @@ class NBMESimulatorApp:
                     rb.config(wraplength=wrap_width)
                 except tk.TclError:
                     pass
+                    
+        # Recalculate text heights in case changing width altered word-wrapping
+        self.root.after(50, self._adjust_text_height)
 
     def _get_scroll_delta(self, event):
         """Helper to calculate smooth scroll delta across Mac, Windows, and Linux."""
@@ -569,7 +595,7 @@ class NBMESimulatorApp:
             
         self.lab_canvas.yview_scroll(self._get_scroll_delta(event), "units")
         return "break" 
-    
+
     def show_full_image(self, event):
         if not self.questions: return
         q = self.questions[self.current_index]
@@ -869,6 +895,7 @@ class NBMESimulatorApp:
 
         # 2. Guard clause for all other exam-related actions
         if not self.questions: return
+        
         if action == "Next":
             if self.current_index < len(self.questions) - 1:
                 self.save_current_state()
@@ -1145,16 +1172,9 @@ class NBMESimulatorApp:
             for i in range(0, len(q.highlights_bottom), 2):
                 self.text_question_bottom.tag_add("highlight", q.highlights_bottom[i], q.highlights_bottom[i+1])
         
-        # 4. Finalize text sizing
-        self.root.update_idletasks() 
-        lines_top = self.text_question.count("1.0", "end", "displaylines")
-        self.text_question.config(height=(lines_top[0] + 1) if lines_top else 2, state=tk.DISABLED)
-        
-        if q.inverted:
-            lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
-            self.text_question_bottom.config(height=(lines_bottom[0] + 1) if lines_bottom else 2, state=tk.DISABLED)
-        else:
-            self.text_question_bottom.config(state=tk.DISABLED)
+        # Lock text boxes (height is now handled automatically at the end of the method)
+        self.text_question.config(state=tk.DISABLED)
+        self.text_question_bottom.config(state=tk.DISABLED)
         
         # 5. Handle Image Preview
         if q.image:
@@ -1193,7 +1213,13 @@ class NBMESimulatorApp:
             rb.bind("<Control-Button-1>", self.toggle_strikeout)
             self.radio_buttons.append(rb)
             
-        # Reset scroll to top
+        # Dynamically size the text boxes and update scroll region
+        self._adjust_text_height()
+    
+        # Force the canvas to recognize the new content size immediately
+        self.root.update_idletasks()
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+
         self.main_canvas.yview_moveto(0)
 
     def _fill_missing_options(self, options):
