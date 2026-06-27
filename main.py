@@ -463,9 +463,8 @@ class NBMESimulatorApp:
             macos_dir = os.path.dirname(sys.executable)
             contents_dir = os.path.dirname(macos_dir) # Moves up one level to /Contents
         
-            # Point to the Resources folder instead
-            assets_path = os.path.join(contents_dir, 'Resources', 'assets')
-            path = os.path.join(assets_path, filename)
+            base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+            path = os.path.join(base_dir, 'assets', filename)
             if os.path.exists(path):
                 try:
                     img = Image.open(path)
@@ -791,10 +790,8 @@ class NBMESimulatorApp:
         self.help_window.configure(fg_color=self.color_white)
         self.help_window.transient(self.root)
         
-        macos_dir = os.path.dirname(sys.executable)
-        contents_dir = os.path.dirname(macos_dir)
-        assets_path = os.path.join(contents_dir, 'Resources', 'assets')
-        pdf_path = os.path.join(assets_path, "HelpDocument.pdf" )
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        pdf_path = os.path.join(base_dir, 'assets', "HelpDocument.pdf" )
         
         if not os.path.exists(pdf_path):
             pdf_path = filedialog.askopenfilename(
