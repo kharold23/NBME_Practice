@@ -147,33 +147,33 @@ class NBMESimulatorApp:
         self.left_top_frame.pack(side=tk.LEFT, padx=10, pady=5)
         
         self.lbl_item_count = tk.Label(self.left_top_frame, text="Exam Section : Item 0 of 0", 
-                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 16, "bold"))
+                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
         self.lbl_item_count.pack(anchor="w")
         
         self.mark_var = tk.BooleanVar()
         self.chk_mark = tk.Checkbutton(self.left_top_frame, text="Mark", variable=self.mark_var, 
                                        command=self.toggle_mark, bg=self.color_blue, fg=self.color_white, 
-                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 14, "bold"))
+                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 12, "bold"))
         self.chk_mark.pack(anchor="w")
 
         self.center_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.center_top_frame.pack(side=tk.LEFT, expand=True)
         
         self.lbl_title_center = tk.Label(self.center_top_frame, text="National Board of Medical Examiners", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12))
         self.lbl_title_center.pack()
         
         self.lbl_subtitle_center = tk.Label(self.center_top_frame, text="PRACTICE Self-Assessment", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold"))
         self.lbl_subtitle_center.pack()
 
         self.right_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.right_top_frame.pack(side=tk.RIGHT, padx=10, pady=5)
         
         tk.Label(self.right_top_frame, text="Time Remaining:", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14)).pack(anchor="e")
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12)).pack(anchor="e")
         self.lbl_time_remaining = tk.Label(self.right_top_frame, text="0 hr 00 min 00 sec", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold"))
         self.lbl_time_remaining.pack(anchor="e")
 
         # --- Main Content Area (Strictly Bounded Scrollable) ---
@@ -221,7 +221,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 16), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -234,14 +234,14 @@ class NBMESimulatorApp:
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 16), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 14)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 12)).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
@@ -251,15 +251,15 @@ class NBMESimulatorApp:
         self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
         # It is hidden initially, will be packed in open_lab_values()
         
-        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold")).pack(side=tk.TOP, fill=tk.X)
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold")).pack(side=tk.TOP, fill=tk.X)
         
         self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
         self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Style the Treeview
         style = ttk.Style()
-        style.configure("Treeview", font=("Arial", 14), rowheight=25)
-        style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
+        style.configure("Treeview", font=("Arial", 12), rowheight=40)
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
 
         # Setup Table Columns
         columns = ("Lab Test", "Reference Range", "SI Interval")
@@ -460,9 +460,6 @@ class NBMESimulatorApp:
 
         def load_btn_image(filename, size=(26, 26)):
             """Helper to load and map a PNG icon into a CTkImage for auto-scaling scaling on macOS."""
-            macos_dir = os.path.dirname(sys.executable)
-            contents_dir = os.path.dirname(macos_dir) # Moves up one level to /Contents
-        
             base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             path = os.path.join(base_dir, 'assets', filename)
             if os.path.exists(path):
@@ -479,8 +476,8 @@ class NBMESimulatorApp:
         img_load = load_btn_image("load.png")
         btn_load = ctk.CTkButton(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
                                  fg_color=self.color_white, text_color=self.color_blue, 
-                                 hover_color="#1a3b61", font=("Arial", 9, "bold"), 
-                                 width=70, height=30, compound="top")
+                                 hover_color="#1a3b61", font=("Arial", 12, "bold"), 
+                                 width=70, height=60, compound="top")
         if img_load:
             btn_load.configure(image=img_load)
         btn_load.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -494,8 +491,8 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=("Arial", 9, "bold"), 
-                                width=50, height=55, compound="top")
+                                hover_color="#1a3b61", font=("Arial", 12, "bold"), 
+                                width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
             btn.pack(side=tk.LEFT, padx=5, pady=5)
@@ -511,8 +508,8 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=("Arial", 9, "bold"), 
-                                width=50, height=55, compound="top")
+                                hover_color="#1a3b61", font=("Arial", 12, "bold"), 
+                                width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
             btn.pack(side=tk.RIGHT, padx=5, pady=5)
@@ -977,13 +974,13 @@ class NBMESimulatorApp:
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
                                    command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 14, "bold"))
+                                   hover_color="#4F4F55", font=("Arial", 12, "bold"))
         export_btn.pack(pady=(0, 10))
 
         if not self.review_mode:
             end_btn = ctk.CTkButton(self.review_window, text="End Test", 
                                     command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 14, "bold"))
+                                   hover_color="#4F4F55", font=("Arial", 12, "bold"))
             end_btn.pack(pady=(0, 10))
 
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
@@ -1010,7 +1007,7 @@ class NBMESimulatorApp:
             
             lbl_btn = ctk.CTkButton(scrollable_frame, text=btn_text, fg_color=bg_color, text_color="black",
                                     hover_color="#7ae694" if is_answered else "#e66e78",
-                                    font=("Arial", 14, "bold"), width=70, height=35,
+                                    font=("Arial", 12, "bold"), width=70, height=35,
                                     command=lambda idx=i: self.goto_question(idx, self.review_window))
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
