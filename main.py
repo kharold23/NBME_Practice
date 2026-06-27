@@ -116,8 +116,8 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
-        self.base_font = tkfont.Font(family="Arial", size=14)
-        self.strike_font = tkfont.Font(family="Arial", size=14, overstrike=1)
+        self.base_font = tkfont.Font(family="Arial", size=16)
+        self.strike_font = tkfont.Font(family="Arial", size=16, overstrike=1)
         
         self.create_widgets()
         self.update_ui()
@@ -139,7 +139,7 @@ class NBMESimulatorApp:
 
     def create_widgets(self):
         # --- Top Bar ---
-        self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=60)
+        self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=80)
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
         self.top_frame.pack_propagate(False)
         
@@ -147,33 +147,33 @@ class NBMESimulatorApp:
         self.left_top_frame.pack(side=tk.LEFT, padx=10, pady=5)
         
         self.lbl_item_count = tk.Label(self.left_top_frame, text="Exam Section : Item 0 of 0", 
-                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
+                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 16, "bold"))
         self.lbl_item_count.pack(anchor="w")
         
         self.mark_var = tk.BooleanVar()
         self.chk_mark = tk.Checkbutton(self.left_top_frame, text="Mark", variable=self.mark_var, 
                                        command=self.toggle_mark, bg=self.color_blue, fg=self.color_white, 
-                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 10, "bold"))
+                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 14, "bold"))
         self.chk_mark.pack(anchor="w")
 
         self.center_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.center_top_frame.pack(side=tk.LEFT, expand=True)
         
         self.lbl_title_center = tk.Label(self.center_top_frame, text="National Board of Medical Examiners", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14))
         self.lbl_title_center.pack()
         
         self.lbl_subtitle_center = tk.Label(self.center_top_frame, text="PRACTICE Self-Assessment", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
         self.lbl_subtitle_center.pack()
 
         self.right_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.right_top_frame.pack(side=tk.RIGHT, padx=10, pady=5)
         
         tk.Label(self.right_top_frame, text="Time Remaining:", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10)).pack(anchor="e")
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14)).pack(anchor="e")
         self.lbl_time_remaining = tk.Label(self.right_top_frame, text="0 hr 00 min 00 sec", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
         self.lbl_time_remaining.pack(anchor="e")
 
         # --- Main Content Area (Strictly Bounded Scrollable) ---
@@ -221,7 +221,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 16), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -234,14 +234,14 @@ class NBMESimulatorApp:
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 16), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 10)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 14)).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
@@ -251,15 +251,15 @@ class NBMESimulatorApp:
         self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
         # It is hidden initially, will be packed in open_lab_values()
         
-        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 10, "bold")).pack(side=tk.TOP, fill=tk.X)
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold")).pack(side=tk.TOP, fill=tk.X)
         
         self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
         self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Style the Treeview
         style = ttk.Style()
-        style.configure("Treeview", font=("Arial", 10), rowheight=25)
-        style.configure("Treeview.Heading", font=("Arial", 10, "bold"))
+        style.configure("Treeview", font=("Arial", 14), rowheight=25)
+        style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
 
         # Setup Table Columns
         columns = ("Lab Test", "Reference Range", "SI Interval")
@@ -452,7 +452,7 @@ class NBMESimulatorApp:
                 self.lab_tree.insert("", tk.END, values=item)
 
         # --- Bottom Bar ---
-        self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=65)
+        self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=80)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.bottom_frame.pack_propagate(False)
 
@@ -977,13 +977,13 @@ class NBMESimulatorApp:
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
                                    command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
+                                   hover_color="#4F4F55", font=("Arial", 14, "bold"))
         export_btn.pack(pady=(0, 10))
 
         if not self.review_mode:
             end_btn = ctk.CTkButton(self.review_window, text="End Test", 
                                     command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 10, "bold"))
+                                   hover_color="#4F4F55", font=("Arial", 14, "bold"))
             end_btn.pack(pady=(0, 10))
 
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
@@ -1010,7 +1010,7 @@ class NBMESimulatorApp:
             
             lbl_btn = ctk.CTkButton(scrollable_frame, text=btn_text, fg_color=bg_color, text_color="black",
                                     hover_color="#7ae694" if is_answered else "#e66e78",
-                                    font=("Arial", 10, "bold"), width=70, height=35,
+                                    font=("Arial", 14, "bold"), width=70, height=35,
                                     command=lambda idx=i: self.goto_question(idx, self.review_window))
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
