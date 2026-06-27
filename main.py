@@ -49,8 +49,8 @@ def get_tesseract_cmd():
         # We are running locally during development
         if sys.platform == 'win32':
             possible_paths = [
-                r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-                r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
+                r'Tesseract-OCR\tesseract.exe',
+                r'Tesseract-OCR\tesseract.exe'
             ]
         else:
             possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
@@ -116,8 +116,8 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
-        self.base_font = tkfont.Font(family="Arial", size=16)
-        self.strike_font = tkfont.Font(family="Arial", size=16, overstrike=1)
+        self.base_font = tkfont.Font(family="Arial", size=22)
+        self.strike_font = tkfont.Font(family="Arial", size=22, overstrike=1)
         
         self.create_widgets()
         self.update_ui()
@@ -139,7 +139,7 @@ class NBMESimulatorApp:
 
     def create_widgets(self):
         # --- Top Bar ---
-        self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=80)
+        self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=100)
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
         self.top_frame.pack_propagate(False)
         
@@ -147,33 +147,36 @@ class NBMESimulatorApp:
         self.left_top_frame.pack(side=tk.LEFT, padx=10, pady=5)
         
         self.lbl_item_count = tk.Label(self.left_top_frame, text="Exam Section : Item 0 of 0", 
-                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 14, "bold"))
+                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
         self.lbl_item_count.pack(anchor="w")
         
         self.mark_var = tk.BooleanVar()
-        self.chk_mark = tk.Checkbutton(self.left_top_frame, text="Mark", variable=self.mark_var, 
-                                       command=self.toggle_mark, bg=self.color_blue, fg=self.color_white, 
-                                       selectcolor=self.color_blue, activebackground=self.color_blue, activeforeground=self.color_white, font=("Arial", 12, "bold"))
+        # Replace self.chk_mark definition
+        self.chk_mark = ctk.CTkCheckBox(self.left_top_frame, text="Mark", variable=self.mark_var, 
+                                command=self.toggle_mark, fg_color="#cfcfcf", text_color="white",
+                                border_color="white", border_width=1,
+                                checkbox_width=12, checkbox_height=12,
+                                font=ctk.CTkFont(family="Arial", size=14, weight="bold")) 
         self.chk_mark.pack(anchor="w")
 
         self.center_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.center_top_frame.pack(side=tk.LEFT, expand=True)
         
         self.lbl_title_center = tk.Label(self.center_top_frame, text="National Board of Medical Examiners", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18))
         self.lbl_title_center.pack()
         
         self.lbl_subtitle_center = tk.Label(self.center_top_frame, text="PRACTICE Self-Assessment", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
         self.lbl_subtitle_center.pack()
 
         self.right_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.right_top_frame.pack(side=tk.RIGHT, padx=10, pady=5)
         
         tk.Label(self.right_top_frame, text="Time Remaining:", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12)).pack(anchor="e")
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18)).pack(anchor="e")
         self.lbl_time_remaining = tk.Label(self.right_top_frame, text="0 hr 00 min 00 sec", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
         self.lbl_time_remaining.pack(anchor="e")
 
         # --- Main Content Area (Strictly Bounded Scrollable) ---
@@ -221,7 +224,7 @@ class NBMESimulatorApp:
         self._bind_mousewheel(self.right_panel)
         
         # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 22), 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
@@ -234,14 +237,14 @@ class NBMESimulatorApp:
         self.radio_buttons = []
 
         # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 14), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 22), 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 12)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 18)).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
@@ -251,15 +254,15 @@ class NBMESimulatorApp:
         self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
         # It is hidden initially, will be packed in open_lab_values()
         
-        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 12, "bold")).pack(side=tk.TOP, fill=tk.X)
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 16, "bold")).pack(side=tk.TOP, fill=tk.X)
         
         self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
         self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Style the Treeview
         style = ttk.Style()
-        style.configure("Treeview", font=("Arial", 12), rowheight=40)
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
+        style.configure("Treeview", font=("Arial", 16), rowheight=35)
+        style.configure("Treeview.Heading", font=("Arial", 16, "bold"))
 
         # Setup Table Columns
         columns = ("Lab Test", "Reference Range", "SI Interval")
@@ -280,7 +283,7 @@ class NBMESimulatorApp:
         self.lab_tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.lab_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        header_font = tkfont.Font(family="Arial", size=10, weight="bold", underline=True)
+        header_font = tkfont.Font(family="Arial", size=14, weight="bold", underline=True)
         self.lab_tree.tag_configure("header_row", font=header_font)
 
         # Insert Filler Data
@@ -452,16 +455,18 @@ class NBMESimulatorApp:
                 self.lab_tree.insert("", tk.END, values=item)
 
         # --- Bottom Bar ---
-        self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=80)
+        self.bottom_frame = tk.Frame(self.root, bg="#0a2240", height=120)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.bottom_frame.pack_propagate(False)
 
         self.footer_images = {}
 
-        def load_btn_image(filename, size=(26, 26)):
+        def load_btn_image(filename, size=(20, 20)):
             """Helper to load and map a PNG icon into a CTkImage for auto-scaling scaling on macOS."""
             base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             path = os.path.join(base_dir, 'assets', filename)
+            # DEBUG
+            # path = os.path.join('assets', filename)
             if os.path.exists(path):
                 try:
                     img = Image.open(path)
@@ -476,8 +481,8 @@ class NBMESimulatorApp:
         img_load = load_btn_image("load.png")
         btn_load = ctk.CTkButton(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
                                  fg_color=self.color_white, text_color=self.color_blue, 
-                                 hover_color="#1a3b61", font=("Arial", 12, "bold"), 
-                                 width=70, height=60, compound="top")
+                                 hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
+                                 width=70, height=30, compound="top")
         if img_load:
             btn_load.configure(image=img_load)
         btn_load.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -491,7 +496,7 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=("Arial", 12, "bold"), 
+                                hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
                                 width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
@@ -508,7 +513,7 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=("Arial", 12, "bold"), 
+                                hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
                                 width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
@@ -561,7 +566,7 @@ class NBMESimulatorApp:
         if wrap_width > 50:
             for rb in self.radio_buttons:
                 try:
-                    rb.config(wraplength=wrap_width)
+                    rb.configure(wraplength=wrap_width)
                 except tk.TclError:
                     pass
                     
@@ -577,7 +582,7 @@ class NBMESimulatorApp:
         elif sys.platform == "darwin":
             return int(-event.delta)
         else:
-            return int(-event.delta / 120) * 4
+            return int(-event.delta / 120) * 6
 
     def _bind_mousewheel(self, widget):
         widget.bind("<MouseWheel>", self._on_mousewheel)
@@ -717,9 +722,9 @@ class NBMESimulatorApp:
         self.pause_window.grab_set() 
         
         ctk.CTkLabel(self.pause_window, text="Exam Paused", text_color=self.color_white, 
-                     font=("Arial", 18, "bold")).pack(pady=(50, 20))
+                     font=ctk.CTkFont(family="Arial", size=18, weight="bold")).pack(pady=(50, 20))
         ctk.CTkButton(self.pause_window, text="Resume", command=self.resume_timer, 
-                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=("Arial", 12)).pack()
+                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=ctk.CTkFont(family="Arial", size=18, weight="bold")).pack()
 
     def resume_timer(self):
         self.pause_window.destroy()
@@ -757,15 +762,16 @@ class NBMESimulatorApp:
                 widget.tag_remove("highlight", start, end)
                 break
 
-    def toggle_strikeout(self, event):
+    def toggle_strikeout_label(self, label_widget):
         if self.review_mode: return
-        widget = event.widget
-        if widget.is_crossed_out:
-            widget.configure(font=self.base_font)
-            widget.is_crossed_out = False
+        
+        # Toggle logic
+        if not label_widget.is_crossed_out:
+            label_widget.configure(font=self.strike_font) # This font has overstrike=1
+            label_widget.is_crossed_out = True
         else:
-            widget.configure(font=self.strike_font)
-            widget.is_crossed_out = True
+            label_widget.configure(font=self.base_font)   # This font has overstrike=0
+            label_widget.is_crossed_out = False
 
     def toggle_mark(self):
         if self.review_mode: return
@@ -922,22 +928,19 @@ class NBMESimulatorApp:
             self.open_review_window()
 
     def open_lab_values(self):
-        """Toggles the inline Lab Values Table Panel"""
         if self.lab_values_open:
             self.lab_values_container.pack_forget()
             self.lab_values_open = False
             self.content_frame.columnconfigure(0, weight=80, uniform="panels")
             self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
-            # Show the panel
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
+            self.lab_tree.configure(height=30) # 'height' here is measured in rows, not pixels
             self.lab_values_open = True
-            # Update to 50/50 split
             self.content_frame.columnconfigure(0, weight=50, uniform="panels")
             self.content_frame.columnconfigure(1, weight=50, uniform="panels")
             
-        # Recalculate text box heights after layout changes
-        self.root.update_idletasks() 
+        self.root.update_idletasks()
         if self.questions:
             q = self.questions[self.current_index]
             
@@ -970,17 +973,17 @@ class NBMESimulatorApp:
         
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
         ctk.CTkLabel(self.review_window, text=mode_text, text_color=self.color_black, 
-                     font=("Arial", 12, "bold" if self.review_mode else "normal")).pack(pady=10)
+                     font=ctk.CTkFont(family="Arial", size=18, weight="bold" if self.review_mode else "normal")).pack(pady=10)
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
                                    command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 12, "bold"))
+                                   hover_color="#4F4F55", font=ctk.CTkFont(family="Arial", size=16, weight="bold"))
         export_btn.pack(pady=(0, 10))
 
         if not self.review_mode:
             end_btn = ctk.CTkButton(self.review_window, text="End Test", 
                                     command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=("Arial", 12, "bold"))
+                                   hover_color="#4F4F55", font=ctk.CTkFont(family="Arial", size=16, weight="bold"))
             end_btn.pack(pady=(0, 10))
 
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
@@ -1007,7 +1010,7 @@ class NBMESimulatorApp:
             
             lbl_btn = ctk.CTkButton(scrollable_frame, text=btn_text, fg_color=bg_color, text_color="black",
                                     hover_color="#7ae694" if is_answered else "#e66e78",
-                                    font=("Arial", 12, "bold"), width=70, height=35,
+                                    font=ctk.CTkFont(family="Arial", size=16, weight="bold"), width=70, height=35,
                                     command=lambda idx=i: self.goto_question(idx, self.review_window))
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
@@ -1139,13 +1142,13 @@ class NBMESimulatorApp:
             self.text_question_bottom.pack_forget() 
             for rb in self.radio_buttons: rb.destroy()
             self.radio_buttons.clear()
-            self.lbl_preview.config(image="", text="No Preview\nAvailable")
+            self.lbl_preview.config(image="", text="No Preview\nAvailable", font=("Arial", 18))
             return
             
         # 2. Setup Question
         q = self.questions[self.current_index]
         self.lbl_item_count.config(text=f"Exam Section : Item {self.current_index + 1} of {len(self.questions)}")
-        self.chk_mark.config(state=tk.DISABLED if self.review_mode else tk.NORMAL)
+        self.chk_mark.configure(state=tk.DISABLED if self.review_mode else tk.NORMAL)
         self.mark_var.set(self.current_index in self.marked_questions)
         
         # Reset Widgets
@@ -1187,7 +1190,7 @@ class NBMESimulatorApp:
         # 5. Handle Image Preview
         if q.image:
             thumb = q.image.copy()
-            thumb.thumbnail((100, 150), Image.Resampling.LANCZOS)
+            thumb.thumbnail((200, 300), Image.Resampling.LANCZOS)
             self.thumb_photo = ImageTk.PhotoImage(thumb) 
             self.lbl_preview.config(image=self.thumb_photo, text="")
         else:
@@ -1201,26 +1204,30 @@ class NBMESimulatorApp:
         # Calculate initial wraplength based on current left_panel size
         initial_wrap_width = max(100, self.left_panel.winfo_width() - 20)
         
+        # In update_ui, replace the rb definition
+        # Instead of a single tk.Radiobutton, create a frame for each option
         for i, opt in enumerate(q.options):
-            rb = tk.Radiobutton(self.options_frame, text=opt, 
-                                variable=q.selected_option, value=opt,
-                                bg=self.color_white, fg="black", font=self.base_font, 
-                                disabledforeground="black", 
-                                activebackground=self.color_white, highlightthickness=0, 
-                                state=rb_state, justify=tk.LEFT, wraplength=initial_wrap_width)
+            # 1. Create a container frame
+            option_frame = ctk.CTkFrame(self.options_frame, fg_color="transparent")
+            option_frame.pack(anchor="w", pady=5)
             
-            # Restore strikeout state
-            if hasattr(q, 'crossed_out_options') and i in q.crossed_out_options:
-                rb.is_crossed_out = True
-                rb.configure(font=self.strike_font)
-            else:
-                rb.is_crossed_out = False 
+            # 2. Add the radio button (empty text)
+            rb = ctk.CTkRadioButton(option_frame, text="", variable=q.selected_option, value=opt, 
+                                    radiobutton_width=15, radiobutton_height=15, width=2, 
+                                    border_width_unchecked=2)
+            rb.pack(side="left")
             
-            rb.pack(anchor="w", pady=5)
-            self._bind_mousewheel(rb)
-            rb.bind("<Control-Button-1>", self.toggle_strikeout)
-            self.radio_buttons.append(rb)
+            # 3. Add the Text/Label widget for the actual content
+            # Using tk.Label allows you to easily switch fonts with overstrike
+            lbl_text = tk.Label(option_frame, text=opt, bg="white", font=self.base_font, anchor="w")
+            lbl_text.pack(side="left", padx=5)
             
+            # Store references to control the strike-out
+            lbl_text.is_crossed_out = False
+            lbl_text.bind("<Button-1>", lambda e, l=lbl_text: self.toggle_strikeout_label(l))
+            
+            self.radio_buttons.append(lbl_text)
+
         # Dynamically size the text boxes and update scroll region
         self._adjust_text_height()
     
@@ -1440,10 +1447,10 @@ class NBMESimulatorApp:
                 
             progress_win.protocol("WM_DELETE_WINDOW", on_close_progress)
             
-            tk.Label(progress_win, text="Reading and OCRing pages...").pack(pady=10)
-            progress_bar = ttk.Progressbar(progress_win, orient=tk.HORIZONTAL, length=250, mode='determinate', maximum=total_pages)
+            tk.Label(progress_win, text="Reading and OCRing pages...", font=("Arial", 18)).pack(pady=10)
+            progress_bar = ttk.Progressbar(progress_win, orient=tk.HORIZONTAL, length=400, mode='determinate', maximum=total_pages)
             progress_bar.pack(pady=10)
-            progress_lbl = tk.Label(progress_win, text=f"Page 0 of {total_pages}")
+            progress_lbl = tk.Label(progress_win, text=f"Page 0 of {total_pages}", font=("Arial", 18))
             progress_lbl.pack()
 
             raw_pages = []
