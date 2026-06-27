@@ -11,6 +11,7 @@ import pytesseract
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
+
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -26,27 +27,20 @@ ctk.set_default_color_theme("blue")
 
 def get_tesseract_cmd():
     if getattr(sys, 'frozen', False):
-        # We are running inside a bundled executable
         if sys.platform == 'win32':
-            # Use sys._MEIPASS to dynamically find the _internal data folder
             base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             tess_dir = os.path.join(base_dir, 'Tesseract-OCR')
             tess_path = os.path.join(tess_dir, 'tesseract.exe')
-            
             os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
             return tess_path
-            
         elif sys.platform == 'darwin':
-            # macOS: Tesseract is inside the .app/Contents/Resources
             macos_dir = os.path.dirname(sys.executable)
             contents_dir = os.path.dirname(macos_dir) 
             tess_dir = os.path.join(contents_dir, 'Resources', 'Tesseract-OCR')
             tess_path = os.path.join(tess_dir, 'tesseract')
-            
             os.environ["TESSDATA_PREFIX"] = os.path.join(tess_dir, 'tessdata')
             return tess_path
     else:
-        # We are running locally during development
         if sys.platform == 'win32':
             possible_paths = [
                 r'Tesseract-OCR\tesseract.exe',
@@ -54,7 +48,6 @@ def get_tesseract_cmd():
             ]
         else:
             possible_paths = ['/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']
-            
         for path in possible_paths:
             if os.path.exists(path):
                 return path
@@ -63,13 +56,10 @@ def get_tesseract_cmd():
 pytesseract.pytesseract.tesseract_cmd = get_tesseract_cmd()
 
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 class Question:
@@ -80,8 +70,6 @@ class Question:
         self.image = image
         self.inverted = inverted
         self.instructions = instructions
-        
-        # Track visual state
         self.highlights_top = []
         self.highlights_bottom = []
         self.crossed_out_options = set()
@@ -106,7 +94,6 @@ class NBMESimulatorApp:
         self.review_window = None
         self.full_img_win = None
         
-        # New State for Lab Values
         self.lab_values_open = False
         self.lab_values_images = []
         self.lab_resize_job = None      
@@ -116,29 +103,33 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
+        # Tkinter / TTK Font Set
+        self.tk_font = tkfont.Font(family="Arial", size=18)
+        self.tk_font_bold = tkfont.Font(family="Arial", size=18, weight="bold")
+        self.tk_font_underline = tkfont.Font(family="Arial", size=18, weight="bold", underline=1)
+        
         self.base_font = tkfont.Font(family="Arial", size=22)
         self.strike_font = tkfont.Font(family="Arial", size=22, overstrike=1)
+
+        # CustomTkinter Font Set
+        self.ctk_font = ctk.CTkFont(family="Arial", size=14)
+        self.ctk_font_bold = ctk.CTkFont(family="Arial", size=14, weight="bold")
+        self.ctk_font_btn = ctk.CTkFont(family="Arial", size=12, weight="bold")
         
         self.create_widgets()
         self.update_ui()
 
     def save_current_state(self):
-        """Saves highlights and strike-outs to the current question object before navigating away."""
         if not self.questions: return
         q = self.questions[self.current_index]
-
-        # Save Text Highlights (Convert Tkinter index objects to strings)
         q.highlights_top = [str(idx) for idx in self.text_question.tag_ranges("highlight")]
         q.highlights_bottom = [str(idx) for idx in self.text_question_bottom.tag_ranges("highlight")]
-
-        # Save Radiobutton Strike-outs
         q.crossed_out_options.clear()
         for i, rb in enumerate(self.radio_buttons):
             if getattr(rb, 'is_crossed_out', False):
                 q.crossed_out_options.add(i)
 
     def create_widgets(self):
-        # --- Top Bar ---
         self.top_frame = tk.Frame(self.root, bg=self.color_blue, height=100)
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
         self.top_frame.pack_propagate(False)
@@ -147,63 +138,54 @@ class NBMESimulatorApp:
         self.left_top_frame.pack(side=tk.LEFT, padx=10, pady=5)
         
         self.lbl_item_count = tk.Label(self.left_top_frame, text="Exam Section : Item 0 of 0", 
-                                       bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
+                                       bg=self.color_blue, fg=self.color_white, font=self.tk_font_bold)
         self.lbl_item_count.pack(anchor="w")
         
         self.mark_var = tk.BooleanVar()
-        # Replace self.chk_mark definition
         self.chk_mark = ctk.CTkCheckBox(self.left_top_frame, text="Mark", variable=self.mark_var, 
                                 command=self.toggle_mark, fg_color="#cfcfcf", text_color="white",
                                 border_color="white", border_width=1,
                                 checkbox_width=12, checkbox_height=12,
-                                font=ctk.CTkFont(family="Arial", size=14, weight="bold")) 
+                                font=self.ctk_font_bold) 
         self.chk_mark.pack(anchor="w")
 
         self.center_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.center_top_frame.pack(side=tk.LEFT, expand=True)
         
         self.lbl_title_center = tk.Label(self.center_top_frame, text="National Board of Medical Examiners", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18))
+                 bg=self.color_blue, fg=self.color_white, font=self.tk_font)
         self.lbl_title_center.pack()
         
         self.lbl_subtitle_center = tk.Label(self.center_top_frame, text="PRACTICE Self-Assessment", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=self.tk_font_bold)
         self.lbl_subtitle_center.pack()
 
         self.right_top_frame = tk.Frame(self.top_frame, bg=self.color_blue)
         self.right_top_frame.pack(side=tk.RIGHT, padx=10, pady=5)
         
         tk.Label(self.right_top_frame, text="Time Remaining:", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18)).pack(anchor="e")
+                 bg=self.color_blue, fg=self.color_white, font=self.tk_font).pack(anchor="e")
         self.lbl_time_remaining = tk.Label(self.right_top_frame, text="0 hr 00 min 00 sec", 
-                 bg=self.color_blue, fg=self.color_white, font=("Arial", 18, "bold"))
+                 bg=self.color_blue, fg=self.color_white, font=self.tk_font_bold)
         self.lbl_time_remaining.pack(anchor="e")
 
-        # --- Main Content Area (Strictly Bounded Scrollable) ---
         self.main_container = tk.Frame(self.root, bg=self.color_white)
         self.main_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Added yscrollincrement to enable high-fidelity smooth scrolling
         self.main_canvas = tk.Canvas(self.main_container, bg=self.color_white, highlightthickness=0, yscrollincrement="15")
         self.main_scrollbar = ttk.Scrollbar(self.main_container, orient="vertical", command=self.main_canvas.yview)
-
         self.scrollable_main_frame = tk.Frame(self.main_canvas, bg=self.color_white)
-        
         self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_main_frame, anchor="nw")
         
-        # Replaced lambda binds with explicit methods to enforce full height constraints
         self.scrollable_main_frame.bind("<Configure>", self._on_scrollable_frame_configure)
         self.main_canvas.bind('<Configure>', self._on_main_canvas_configure)
-        
         self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
-
         self.main_canvas.pack(side="left", fill="both", expand=True, padx=(40, 0), pady=30)
         self.main_scrollbar.pack(side="right", fill="y")
         
         self._bind_mousewheel(self.main_canvas)
         self._bind_mousewheel(self.scrollable_main_frame)
 
-        # --- Grid Layout Configuration ---
         self.content_frame = tk.Frame(self.scrollable_main_frame, bg=self.color_white)
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
@@ -215,56 +197,46 @@ class NBMESimulatorApp:
         self.left_panel = tk.Frame(self.content_frame, bg=self.color_white)
         self.left_panel.grid(row=0, column=0, sticky="nsew")
         self._bind_mousewheel(self.left_panel)
-        
-        # Dynamically adjust text wrapping for radio buttons when layout changes
         self.left_panel.bind("<Configure>", self.on_left_panel_configure)
         
         self.right_panel = tk.Frame(self.content_frame, bg=self.color_white)
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(20, 20))
         self._bind_mousewheel(self.right_panel)
         
-        # Upper Text Box 
-        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 22), 
+        self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=self.base_font, 
                                      wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question.tag_config("highlight", background="yellow")
         self.text_question.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question)
         
-        # Options Frame
         self.options_frame = tk.Frame(self.left_panel, bg=self.color_white)
         self._bind_mousewheel(self.options_frame)
         self.radio_buttons = []
 
-        # Lower Text Box (Used for inverted questions)
-        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=("Arial", 22), 
+        self.text_question_bottom = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=self.base_font, 
                                             wrap=tk.WORD, borderwidth=0, highlightthickness=0)
         self.text_question_bottom.tag_config("highlight", background="yellow")
         self.text_question_bottom.bind("<ButtonRelease-1>", self.apply_highlight)
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=("Arial", 18)).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=self.tk_font).pack(side=tk.TOP, pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
         self.lbl_preview.pack(side=tk.TOP)
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
         self._bind_mousewheel(self.lbl_preview)
 
-        # --- Lab Values Embed Container ---
         self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
-        # It is hidden initially, will be packed in open_lab_values()
-        
-        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=("Arial", 16, "bold")).pack(side=tk.TOP, fill=tk.X)
+        tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=self.tk_font_bold).pack(side=tk.TOP, fill=tk.X)
         
         self.lab_tree_frame = tk.Frame(self.lab_values_container, bg=self.color_white)
         self.lab_tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Style the Treeview
         style = ttk.Style()
-        style.configure("Treeview", font=("Arial", 16), rowheight=35)
-        style.configure("Treeview.Heading", font=("Arial", 16, "bold"))
+        style.configure("Treeview", font=self.tk_font, rowheight=35)
+        style.configure("Treeview.Heading", font=self.tk_font_bold)
 
-        # Setup Table Columns
         columns = ("Lab Test", "Reference Range", "SI Interval")
         self.lab_tree = ttk.Treeview(self.lab_tree_frame, columns=columns, show="headings", selectmode="none")
         
@@ -276,7 +248,6 @@ class NBMESimulatorApp:
         self.lab_tree.column("Reference Range", width=120, anchor=tk.W)
         self.lab_tree.column("SI Interval", width=120, anchor=tk.W)
 
-        # Setup Scrollbar
         self.lab_tree_scrollbar = ttk.Scrollbar(self.lab_tree_frame, orient=tk.VERTICAL, command=self.lab_tree.yview)
         self.lab_tree.configure(yscrollcommand=self.lab_tree_scrollbar.set)
 
@@ -286,7 +257,6 @@ class NBMESimulatorApp:
         header_font = tkfont.Font(family="Arial", size=14, weight="bold", underline=True)
         self.lab_tree.tag_configure("header_row", font=header_font)
 
-        # Insert Filler Data
         lab_values_data = [
             ("General Chemistry", "", ""),
             ("Sodium (Na+)", "136-146 mEq/L", "136-146 mmol/L"), 
@@ -448,7 +418,6 @@ class NBMESimulatorApp:
         ]
         
         for item in lab_values_data:
-            # Check if the 2nd and 3rd columns (Reference Range and SI Interval) are empty
             if item[1] == "" and item[2] == "":
                 self.lab_tree.insert("", tk.END, values=item, tags=("header_row",))
             else:
@@ -462,11 +431,10 @@ class NBMESimulatorApp:
         self.footer_images = {}
 
         def load_btn_image(filename, size=(20, 20)):
-            """Helper to load and map a PNG icon into a CTkImage for auto-scaling scaling on macOS."""
             base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             path = os.path.join(base_dir, 'assets', filename)
             # DEBUG
-            # path = os.path.join('assets', filename)
+            path = os.path.join('assets', filename)
             if os.path.exists(path):
                 try:
                     img = Image.open(path)
@@ -477,11 +445,10 @@ class NBMESimulatorApp:
                     print(f"Warning: Could not load image {filename}: {e}")
             return None
         
-        # Center: Native CustomTkinter load button
         img_load = load_btn_image("load.png")
         btn_load = ctk.CTkButton(self.bottom_frame, text="Load PDF", command=self.load_pdf, 
                                  fg_color=self.color_white, text_color=self.color_blue, 
-                                 hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
+                                 hover_color="#1a3b61", font=self.ctk_font_btn, 
                                  width=70, height=30, compound="top")
         if img_load:
             btn_load.configure(image=img_load)
@@ -496,7 +463,7 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
+                                hover_color="#1a3b61", font=self.ctk_font_btn, 
                                 width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
@@ -513,55 +480,38 @@ class NBMESimulatorApp:
             img = load_btn_image(icon_file)
             btn = ctk.CTkButton(self.bottom_frame, text=text, command=lambda a=action: self.handle_bottom_action(a),
                                 fg_color=self.color_blue, text_color=self.color_white, 
-                                hover_color="#1a3b61", font=ctk.CTkFont(family="Arial", size=12, weight="bold"), 
+                                hover_color="#1a3b61", font=self.ctk_font_btn, 
                                 width=50, height=60, compound="top")
             if img:
                 btn.configure(image=img)
             btn.pack(side=tk.RIGHT, padx=5, pady=5)
 
     def _on_main_canvas_configure(self, event):
-        """Forces the content window to match the canvas width and handle scrolling."""
         self.main_canvas.itemconfig(self.canvas_window, width=event.width)
-        # Update scrollregion whenever the canvas size changes
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
 
     def _on_scrollable_frame_configure(self, event):
-        """Updates scroll region and ensures the canvas window expands to fit contents."""
-        # 1. Update the scroll region to the total size of the contents
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
-        
-        # 2. Allow the inner window to be at least the size of the canvas
         canvas_height = self.main_canvas.winfo_height()
         if event.height < canvas_height:
             self.main_canvas.itemconfig(self.canvas_window, height=canvas_height)
         else:
-            # 3. If content is taller than the canvas, allow the window to expand[cite: 1]
             self.main_canvas.itemconfig(self.canvas_window, height=event.height)
 
     def _adjust_text_height(self):
         self.root.update_idletasks()
-        
-        # 1. Adjust text boxes (your existing logic)
         if self.text_question.winfo_ismapped():
             lines_top = self.text_question.count("1.0", "end", "displaylines")
             if lines_top: self.text_question.config(height=lines_top[0] + 1)
-                
         if hasattr(self, 'text_question_bottom') and self.text_question_bottom.winfo_ismapped():
             lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
             if lines_bottom: self.text_question_bottom.config(height=lines_bottom[0] + 1)
-        
-        # 2. FORCE the scrollable frame to recognize the new height of the options_frame
         self.scrollable_main_frame.update_idletasks()
-        
-        # 3. Explicitly update the canvas window height to match the total content reqheight
         total_content_height = self.scrollable_main_frame.winfo_reqheight()
         self.main_canvas.itemconfig(self.canvas_window, height=total_content_height)
-        
-        # 4. Refresh the scroll region
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
 
     def on_left_panel_configure(self, event):
-        """Dynamically adjusts the text wrapping length of radio buttons to prevent overlap."""
         wrap_width = event.width - 20 
         if wrap_width > 50:
             for rb in self.radio_buttons:
@@ -569,12 +519,9 @@ class NBMESimulatorApp:
                     rb.configure(wraplength=wrap_width)
                 except tk.TclError:
                     pass
-                    
-        # Recalculate text heights in case changing width altered word-wrapping
         self.root.after(50, self._adjust_text_height)
 
     def _get_scroll_delta(self, event):
-        """Helper to calculate smooth scroll delta across Mac, Windows, and Linux."""
         if event.num == 4:
             return -4
         elif event.num == 5:
@@ -593,7 +540,6 @@ class NBMESimulatorApp:
         bbox = self.main_canvas.bbox("all")
         if not bbox or bbox[3] <= self.main_canvas.winfo_height():
             return "break"
-            
         self.main_canvas.yview_scroll(self._get_scroll_delta(event), "units")
         return "break" 
 
@@ -614,20 +560,16 @@ class NBMESimulatorApp:
         if not self.questions: return
         q = self.questions[self.current_index]
         if not q.image: return
-        
         if self.full_img_win and self.full_img_win.winfo_exists():
             self.full_img_win.destroy()
-            
         self.full_img_win = tk.Toplevel(self.root)
         self.full_img_win.title("Full Size Reference (Click to Close)")
         self.full_img_win.configure(bg="black")
         
         max_w = self.root.winfo_width() - 80   
         max_h = self.root.winfo_height() - 80  
-        
         img_w, img_h = q.image.size
         scale = min(1.0, max_w / img_w, max_h / img_h)
-        
         new_w = int(img_w * scale)
         new_h = int(img_h * scale)
         
@@ -645,7 +587,6 @@ class NBMESimulatorApp:
         
         self.full_img_win.geometry(f"{new_w}x{new_h}+{win_x}+{win_y}")
         self.full_img_win.overrideredirect(True) 
-        
         lbl_full.bind("<Button-1>", lambda e: self.full_img_win.destroy())
 
     def start_timer(self):
@@ -656,19 +597,15 @@ class NBMESimulatorApp:
     def update_timer(self):
         if not self.timer_running:
             return
-
         if self.time_left > 0:
             hrs, remainder = divmod(self.time_left, 3600)
             mins, secs = divmod(remainder, 60)
             self.lbl_time_remaining.config(text=f"{hrs} hr {mins:02d} min {secs:02d} sec")
             self.time_left -= 1
             self.timer_job = self.root.after(1000, self.update_timer)
-            
         elif self.time_left == 0:
             self.timer_running = False
             self.lbl_time_remaining.config(text="0 hr 00 min 00 sec", fg="#ff4444")
-            
-            # Prompt the user to continue or end
             end_exam = messagebox.askyesno("Time's Up", "The exam time has expired.\n\nWould you like to end the exam?")
             if end_exam:
                 self.enter_review_mode()
@@ -676,55 +613,41 @@ class NBMESimulatorApp:
                 self.timer_running = True
                 self.time_left -= 1
                 self.timer_job = self.root.after(1000, self.update_timer)
-                
-        else: # Overtime (Negative Time)
+        else: 
             abs_time = abs(self.time_left)
             hrs, remainder = divmod(abs_time, 3600)
             mins, secs = divmod(remainder, 60)
-            
-            # Prepend the minus sign and color it red to indicate overtime
             self.lbl_time_remaining.config(text=f"- {hrs} hr {mins:02d} min {secs:02d} sec", fg="#ff4444")
             self.time_left -= 1
             self.timer_job = self.root.after(1000, self.update_timer)
 
     def toggle_pause(self):
-        # Allow opening if timer isn't running, but prevent in review mode
         if self.review_mode:
             return 
-            
-        # Prevent opening multiple pause windows if one already exists
         if hasattr(self, 'pause_window') and self.pause_window and self.pause_window.winfo_exists():
             return
-
         self.timer_running = False 
         self.pause_window = ctk.CTkToplevel(self.root)
         self.pause_window.title("Exam Paused")
         
-        # --- Center the pause window relative to the app window ---
         window_width = 400
         window_height = 200
-        
-        # Get parent window position and size
         root_x = self.root.winfo_rootx()
         root_y = self.root.winfo_rooty()
         root_width = self.root.winfo_width()
         root_height = self.root.winfo_height()
-        
-        # Calculate center coordinates
         pos_x = root_x + (root_width // 2) - (window_width // 2)
         pos_y = root_y + (root_height // 2) - (window_height // 2)
         
         self.pause_window.geometry(f"{window_width}x{window_height}+{pos_x}+{pos_y}")
-        # ----------------------------------------------------------
-        
         self.pause_window.configure(fg_color=self.color_blue)
         self.pause_window.transient(self.root)
         self.pause_window.grab_set() 
         
         ctk.CTkLabel(self.pause_window, text="Exam Paused", text_color=self.color_white, 
-                     font=ctk.CTkFont(family="Arial", size=18, weight="bold")).pack(pady=(50, 20))
+                     font=self.ctk_font_large_bold).pack(pady=(50, 20))
         ctk.CTkButton(self.pause_window, text="Resume", command=self.resume_timer, 
-                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=ctk.CTkFont(family="Arial", size=18, weight="bold")).pack()
+                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=self.ctk_font_large_bold).pack()
 
     def resume_timer(self):
         self.pause_window.destroy()
@@ -764,13 +687,11 @@ class NBMESimulatorApp:
 
     def toggle_strikeout_label(self, label_widget):
         if self.review_mode: return
-        
-        # Toggle logic
         if not label_widget.is_crossed_out:
-            label_widget.configure(font=self.strike_font) # This font has overstrike=1
+            label_widget.configure(font=self.strike_font) 
             label_widget.is_crossed_out = True
         else:
-            label_widget.configure(font=self.base_font)   # This font has overstrike=0
+            label_widget.configure(font=self.base_font)   
             label_widget.is_crossed_out = False
 
     def toggle_mark(self):
@@ -782,11 +703,9 @@ class NBMESimulatorApp:
                 self.marked_questions.discard(self.current_index)
 
     def show_help_pdf(self):
-        """Creates an in-app window to render and display a Help PDF dynamically sized to the window."""
         if hasattr(self, 'help_window') and self.help_window and self.help_window.winfo_exists():
             self.help_window.lift()
             return
-
         self.help_window = ctk.CTkToplevel(self.root)
         self.help_window.title("Help Documentation")
         self.help_window.geometry("850x700")
@@ -807,8 +726,6 @@ class NBMESimulatorApp:
                 
         try:
             self.help_doc = fitz.open(pdf_path)
-            
-            # --- Layout Setup ---
             self.help_canvas = tk.Canvas(self.help_window, bg=self.color_white, highlightthickness=0)
             scrollbar = ttk.Scrollbar(self.help_window, orient="vertical", command=self.help_canvas.yview)
             self.help_scroll_frame = tk.Frame(self.help_canvas, bg=self.color_white)
@@ -819,10 +736,8 @@ class NBMESimulatorApp:
             self.help_canvas.pack(side="left", fill="both", expand=True)
             scrollbar.pack(side="right", fill="y")
             
-            # --- Scroll Logic (Matching the Lab Values implementation) ---
             def _on_help_mousewheel(event):
                 bbox = self.help_canvas.bbox("all")
-                # Prevents scrolling if content is smaller than window height
                 if not bbox or bbox[3] <= self.help_canvas.winfo_height():
                     return "break"
                 self.help_canvas.yview_scroll(self._get_scroll_delta(event), "units")
@@ -836,57 +751,39 @@ class NBMESimulatorApp:
             _bind_help_mousewheel(self.help_canvas)
             _bind_help_mousewheel(self.help_scroll_frame)
 
-            # --- Dynamic PDF Resizing ---
             self.help_pdf_images = []
             self.last_help_width = 0
             self.help_resize_job = None
             
             def render_pdf_pages(target_width):
-                """Renders pages with a scale calculated to fit the target width."""
                 self.help_pdf_images.clear()
                 for widget in self.help_scroll_frame.winfo_children():
                     widget.destroy()
-                
-                # Account for scrollbar and padding in width calculation
                 usable_width = target_width - 50 
-                
                 for page_num in range(len(self.help_doc)):
                     page = self.help_doc.load_page(page_num)
                     scale = usable_width / page.rect.width
                     if scale <= 0: scale = 1.0  
-                    
                     pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale)) 
                     mode = "RGBA" if pix.alpha else "RGB"
                     img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                    
                     photo = ImageTk.PhotoImage(img)
                     self.help_pdf_images.append(photo)
-                    
                     lbl = tk.Label(self.help_scroll_frame, image=photo, bg=self.color_white, bd=1, relief="solid")
                     lbl.pack(pady=10, padx=10)
-                    
-                    # Ensure the image itself allows scrolling when hovered
                     _bind_help_mousewheel(lbl) 
-                    
                 self.help_window.update_idletasks()
                 self.help_canvas.configure(scrollregion=self.help_canvas.bbox("all"))
 
             def on_canvas_configure(event):
-                """Debounced function to re-render PDF if the window is resized."""
                 self.help_canvas.itemconfig(self.help_canvas_window, width=event.width)
-                
-                # Only re-render if the width has changed significantly to avoid lag
                 if abs(event.width - self.last_help_width) > 30:
                     if self.help_resize_job:
                         self.help_window.after_cancel(self.help_resize_job)
                     self.last_help_width = event.width
-                    
-                    # Wait 300ms after the user stops dragging the window to render the new quality
                     self.help_resize_job = self.help_window.after(300, lambda: render_pdf_pages(event.width))
 
             self.help_canvas.bind("<Configure>", on_canvas_configure)
-            
-            # --- Initial Render ---
             initial_width = self.help_window.winfo_width()
             if initial_width < 100: 
                 initial_width = 850 
@@ -898,7 +795,6 @@ class NBMESimulatorApp:
                 self.help_window.destroy()
 
     def handle_bottom_action(self, action):
-        # 1. Process "Help" BEFORE the guard clause so it works at any time
         if action == "Help":
             self.show_help_pdf()
             return
@@ -906,7 +802,6 @@ class NBMESimulatorApp:
             self.open_lab_values()
             return
 
-        # 2. Guard clause for all other exam-related actions
         if not self.questions: return
         if action == "Next":
             if self.current_index < len(self.questions) - 1:
@@ -935,7 +830,7 @@ class NBMESimulatorApp:
             self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
-            self.lab_tree.configure(height=30) # 'height' here is measured in rows, not pixels
+            self.lab_tree.configure(height=30) 
             self.lab_values_open = True
             self.content_frame.columnconfigure(0, weight=50, uniform="panels")
             self.content_frame.columnconfigure(1, weight=50, uniform="panels")
@@ -943,11 +838,9 @@ class NBMESimulatorApp:
         self.root.update_idletasks()
         if self.questions:
             q = self.questions[self.current_index]
-            
             lines_top = self.text_question.count("1.0", "end", "displaylines")
             if lines_top:
                 self.text_question.config(height=lines_top[0] + 1)
-                
             if q.inverted:
                 lines_bottom = self.text_question_bottom.count("1.0", "end", "displaylines")
                 if lines_bottom:
@@ -973,17 +866,17 @@ class NBMESimulatorApp:
         
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
         ctk.CTkLabel(self.review_window, text=mode_text, text_color=self.color_black, 
-                     font=ctk.CTkFont(family="Arial", size=18, weight="bold" if self.review_mode else "normal")).pack(pady=10)
+                     font=self.ctk_font_large_bold if self.review_mode else self.ctk_font_bold).pack(pady=10)
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
                                    command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=ctk.CTkFont(family="Arial", size=16, weight="bold"))
+                                   hover_color="#4F4F55", font=self.ctk_font_bold)
         export_btn.pack(pady=(0, 10))
 
         if not self.review_mode:
             end_btn = ctk.CTkButton(self.review_window, text="End Test", 
                                     command=self.confirm_end_test, fg_color=self.color_blue, text_color=self.color_white, 
-                                   hover_color="#4F4F55", font=ctk.CTkFont(family="Arial", size=16, weight="bold"))
+                                   hover_color="#4F4F55", font=self.ctk_font_bold)
             end_btn.pack(pady=(0, 10))
 
         canvas = tk.Canvas(self.review_window, bg=self.color_white, borderwidth=0, highlightthickness=0)
@@ -1010,7 +903,7 @@ class NBMESimulatorApp:
             
             lbl_btn = ctk.CTkButton(scrollable_frame, text=btn_text, fg_color=bg_color, text_color="black",
                                     hover_color="#7ae694" if is_answered else "#e66e78",
-                                    font=ctk.CTkFont(family="Arial", size=16, weight="bold"), width=70, height=35,
+                                    font=self.ctk_font_bold, width=70, height=35,
                                     command=lambda idx=i: self.goto_question(idx, self.review_window))
             lbl_btn.grid(row=row, column=col, padx=8, pady=8)
 
@@ -1022,46 +915,34 @@ class NBMESimulatorApp:
         self.review_window = None
 
     def _get_formatted_text(self, raw_text, highlight_ranges):
-        """Helper to safely map Tkinter highlight indices to ReportLab HTML-like tags."""
         temp_text = tk.Text(self.root)
         temp_text.insert("1.0", raw_text)
-        
-        # Apply the saved highlight indices
         if highlight_ranges:
             for i in range(0, len(highlight_ranges), 2):
                 temp_text.tag_add("highlight", highlight_ranges[i], highlight_ranges[i+1])
-
         parts = []
-        # Dump the text and tags sequentially
         for key, value, index in temp_text.dump("1.0", "end"):
             if key == "tagon" and value == "highlight":
                 parts.append('<font backColor="yellow">')
             elif key == "tagoff" and value == "highlight":
                 parts.append('</font>')
             elif key == "text":
-                # Escape special HTML characters to prevent ReportLab crashes
                 clean_text = value.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 clean_text = clean_text.replace('\n', '<br/>')
                 parts.append(clean_text)
-
         temp_text.destroy()
-        
         res = "".join(parts)
-        # Strip trailing newline artifact from Tkinter dump
         if res.endswith("<br/>"): res = res[:-5] 
         return res
 
     def export_to_pdf(self):
-        """Generates a comprehensive PDF report of the current exam state."""
         if not self.questions:
             messagebox.showwarning("Empty", "No questions to export.")
             return
-            
         if not REPORTLAB_AVAILABLE:
             messagebox.showerror("Missing Dependency", "ReportLab is required for this feature.\nPlease run: pip install reportlab")
             return
 
-        # Ensure the current question's state is saved before exporting
         self.save_current_state()
 
         file_path = filedialog.asksaveasfilename(
@@ -1076,7 +957,6 @@ class NBMESimulatorApp:
             styles = getSampleStyleSheet()
             story = []
 
-            # Custom Styles
             title_style = styles['Title']
             header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading2'], textColor=colors.HexColor("#0a2240"))
             flagged_style = ParagraphStyle('FlaggedStyle', parent=styles['Heading2'], textColor=colors.red)
@@ -1086,13 +966,11 @@ class NBMESimulatorApp:
             story.append(Spacer(1, 20))
 
             for i, q in enumerate(self.questions):
-                # 1. Title & Flag Status
                 is_flagged = i in self.marked_questions
                 h_style = flagged_style if is_flagged else header_style
                 title_text = f"Question {i + 1} [FLAGGED]" if is_flagged else f"Question {i + 1}"
                 story.append(Paragraph(f"<b>{title_text}</b>", h_style))
                 
-                # 2. Extract and format text with highlights
                 if q.inverted:
                     inst_formatted = self._get_formatted_text(q.instructions, q.highlights_top)
                     q_formatted = self._get_formatted_text(q.text, q.highlights_bottom)
@@ -1104,29 +982,22 @@ class NBMESimulatorApp:
                     
                 story.append(Spacer(1, 5))
 
-                # 3. Process Options
                 selected_val = q.selected_option.get()
                 for j, opt in enumerate(q.options):
                     opt_clean = opt.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    
                     is_selected = (selected_val == opt)
                     is_crossed = j in getattr(q, 'crossed_out_options', set())
-                    
                     prefix = "[ X ]" if is_selected else "[   ]"
                     if is_crossed:
                         opt_clean = f"<strike>{opt_clean}</strike>"
-                        
                     color_tag = "green" if is_selected else "gray" if is_crossed else "black"
-                    
                     option_line = f"<font color='{color_tag}'><b>{prefix}</b> {opt_clean}</font>"
                     story.append(Paragraph(option_line, body_style))
 
                 story.append(Spacer(1, 15))
-                # Add a light separator line between questions
                 story.append(Paragraph("<font color='#cccccc'>________________________________________________________________________</font>", body_style))
                 story.append(Spacer(1, 15))
 
-            # Build PDF
             doc.build(story)
             messagebox.showinfo("Success", f"Report successfully exported to:\n{file_path}")
 
@@ -1142,7 +1013,7 @@ class NBMESimulatorApp:
             self.text_question_bottom.pack_forget() 
             for rb in self.radio_buttons: rb.destroy()
             self.radio_buttons.clear()
-            self.lbl_preview.config(image="", text="No Preview\nAvailable", font=("Arial", 18))
+            self.lbl_preview.config(image="", text="No Preview\nAvailable", font=self.tk_font)
             return
             
         # 2. Setup Question
@@ -1165,7 +1036,6 @@ class NBMESimulatorApp:
         if q.inverted:
             self.text_question.insert("1.0", q.instructions)
             self.text_question_bottom.insert("1.0", q.text)
-            
             self.text_question.pack(anchor="w", fill=tk.X, pady=(0, 20))
             self.options_frame.pack(anchor="w", fill=tk.X)
             self.text_question_bottom.pack(anchor="w", fill=tk.X, pady=(20, 0)) 
@@ -1174,7 +1044,6 @@ class NBMESimulatorApp:
             self.text_question.pack(anchor="w", fill=tk.X, pady=(0, 20))
             self.options_frame.pack(anchor="w", fill=tk.X)
             
-        # --- Restore Text Highlights ---
         if hasattr(q, 'highlights_top') and q.highlights_top:
             for i in range(0, len(q.highlights_top), 2):
                 self.text_question.tag_add("highlight", q.highlights_top[i], q.highlights_top[i+1])
@@ -1183,7 +1052,6 @@ class NBMESimulatorApp:
             for i in range(0, len(q.highlights_bottom), 2):
                 self.text_question_bottom.tag_add("highlight", q.highlights_bottom[i], q.highlights_bottom[i+1])
         
-        # Lock text boxes (height is now handled automatically at the end of the method)
         self.text_question.config(state=tk.DISABLED)
         self.text_question_bottom.config(state=tk.DISABLED)
         
@@ -1201,75 +1069,49 @@ class NBMESimulatorApp:
         self.radio_buttons.clear()
         rb_state = tk.DISABLED if self.review_mode else tk.NORMAL
         
-        # Calculate initial wraplength based on current left_panel size
         initial_wrap_width = max(100, self.left_panel.winfo_width() - 20)
         
-        # In update_ui, replace the rb definition
-        # Instead of a single tk.Radiobutton, create a frame for each option
         for i, opt in enumerate(q.options):
-            # 1. Create a container frame
             option_frame = ctk.CTkFrame(self.options_frame, fg_color="transparent")
             option_frame.pack(anchor="w", pady=5)
             
-            # 2. Add the radio button (empty text)
             rb = ctk.CTkRadioButton(option_frame, text="", variable=q.selected_option, value=opt, 
                                     radiobutton_width=15, radiobutton_height=15, width=2, 
                                     border_width_unchecked=2)
             rb.pack(side="left")
             
-            # 3. Add the Text/Label widget for the actual content
-            # Using tk.Label allows you to easily switch fonts with overstrike
             lbl_text = tk.Label(option_frame, text=opt, bg="white", font=self.base_font, anchor="w")
             lbl_text.pack(side="left", padx=5)
             
-            # Store references to control the strike-out
             lbl_text.is_crossed_out = False
             lbl_text.bind("<Button-1>", lambda e, l=lbl_text: self.toggle_strikeout_label(l))
             
             self.radio_buttons.append(lbl_text)
 
-        # Dynamically size the text boxes and update scroll region
         self._adjust_text_height()
-    
-        # Force the canvas to recognize the new content size immediately
         self.root.update_idletasks()
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
-
         self.main_canvas.yview_moveto(0)
 
     def _fill_missing_options(self, options):
-        """
-        Evaluates a list of options (e.g., ['A) text', 'C) text']) and fills in 
-        missing letters up to the highest detected option with an error placeholder.
-        """
         if not options:
             return []
-            
         letters_found = []
         for opt in options:
             match = re.match(r'^([A-Z])\)', opt.strip())
             if match:
                 letters_found.append(match.group(1))
-                
         if not letters_found:
             return options
-            
         max_letter = max(letters_found)
         complete_options = []
-        
-        # Iterate from 'A' up to the highest letter found
         for i in range(ord('A'), ord(max_letter) + 1):
             expected_letter = chr(i)
-            
-            # Search for an existing option that matches the expected letter
             found_opt = next((opt for opt in options if opt.strip().startswith(f"{expected_letter})")), None)
-            
             if found_opt:
                 complete_options.append(found_opt)
             else:
-                # Inject fallback if the OCR missed this letter
                 complete_options.append(f"{expected_letter}) [OCR error, see reference]")
-                
         return complete_options
 
     def parse_text_to_questions(self, raw_pages):
@@ -1284,10 +1126,8 @@ class NBMESimulatorApp:
             page_num = page_data["page_num"]
             clean_text = page_text.strip()
             
-            # Reset options for each page to avoid carrying over previous options
             options = []
             parsed_successfully = False
-            
             clean_text = re.sub(r'[1|lI]\)', 'I)', clean_text)
             
             # Detect Inverted Format
@@ -1310,8 +1150,6 @@ class NBMESimulatorApp:
                     options_messy = re.split(r'(?=[A-Z]\))', answers_block)
                     options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                     options.sort()
-                    
-                    # Fill in missing answer choices
                     options = self._fill_missing_options(options)
 
                     if options:
@@ -1333,8 +1171,6 @@ class NBMESimulatorApp:
                     options_messy = re.split(r'(?=[A-Z]\))', answers_block)
                     options = [re.split(r'\n|\t| {2,}', item.strip())[0] for item in options_messy[1:]]
                     options.sort()
-                    
-                    # Fill in missing answer choices
                     options = self._fill_missing_options(options)
 
                 if options:
@@ -1345,7 +1181,6 @@ class NBMESimulatorApp:
             # Fallback for unparsed pages: 1-to-1 page/question matching
             if not parsed_successfully:
                 fallback_text = "[OCR unable to process this question, please see reference image]"
-                # Generate options A through Z
                 fallback_options = [f"{chr(i)})" for i in range(65, 91)] 
                 unparsed_pages.append(page_num)
                 parsed_questions.append(Question(self.root, fallback_text, fallback_options, image=page_image, inverted=False))
@@ -1424,9 +1259,8 @@ class NBMESimulatorApp:
             
         return processed_rgb
 
-    def load_pdf(self, file_path=None): # Added optional parameter
+    def load_pdf(self, file_path=None): 
         if not file_path:
-            # Only open the dialog if no path was provided via CLI
             file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")])
         if not file_path: return
             
@@ -1447,26 +1281,23 @@ class NBMESimulatorApp:
                 
             progress_win.protocol("WM_DELETE_WINDOW", on_close_progress)
             
-            tk.Label(progress_win, text="Reading and OCRing pages...", font=("Arial", 18)).pack(pady=10)
+            tk.Label(progress_win, text="Reading and OCRing pages...", font=self.tk_font).pack(pady=10)
             progress_bar = ttk.Progressbar(progress_win, orient=tk.HORIZONTAL, length=400, mode='determinate', maximum=total_pages)
             progress_bar.pack(pady=10)
-            progress_lbl = tk.Label(progress_win, text=f"Page 0 of {total_pages}", font=("Arial", 18))
+            progress_lbl = tk.Label(progress_win, text=f"Page 0 of {total_pages}", font=self.tk_font)
             progress_lbl.pack()
 
             raw_pages = []
             
             for page_num in range(total_pages):
-                # --- Halt execution if window was closed ---
                 if self.cancel_ocr:
                     messagebox.showinfo("Cancelled", "PDF processing was cancelled.")
                     return
                 
-                # --- Update UI ---
                 progress_bar['value'] = page_num + 1
                 progress_lbl.config(text=f"Processing page {page_num + 1} of {total_pages}")
                 self.root.update() 
 
-                # Generate original pixmap (Keep this for the GUI/Display)
                 mat = fitz.Matrix(2.0, 2.0)
                 page = doc.load_page(page_num)
                 pix = page.get_pixmap(matrix=mat)
@@ -1480,18 +1311,15 @@ class NBMESimulatorApp:
                 config = '--psm 6'
                 text = pytesseract.image_to_string(final_img, config=config)
 
-                # 3. STORE BOTH
                 raw_pages.append({
                     "text": text, 
                     "image": raw_img, 
                     "page_num": page_num + 1
                 })
 
-            # Safely close the progress window if it wasn't cancelled
             if not self.cancel_ocr and progress_win.winfo_exists():
                 progress_win.destroy()
 
-            # Trigger the parsing pipeline
             new_questions, unparsed_pages = self.parse_text_to_questions(raw_pages)
             
             # UI Updates
@@ -1533,12 +1361,9 @@ if __name__ == "__main__":
     root = ctk.CTk()
     app = NBMESimulatorApp(root)
     
-    # Check for CLI arguments for CI/CD testing
     if len(sys.argv) > 1:
         pdf_args = [arg for arg in sys.argv if arg.lower().endswith('.pdf')]
         is_test_mode = "--test" in sys.argv
-        
-        # Pass the test mode state to the app
         app.is_test_mode = is_test_mode 
 
         if pdf_args:
@@ -1548,18 +1373,16 @@ if __name__ == "__main__":
                 print(f"Loading test file: {test_pdf_path}")
                 app.load_pdf(test_pdf_path)
                 
-                # If we successfully parsed questions, Tesseract is working
                 if app.questions:
                     print(f"SUCCESS: Parsed {len(app.questions)} questions using Tesseract.")
                     if is_test_mode:
                         print("Test complete. Exiting normally.")
-                        root.destroy() # Closes the app, allowing GitHub Actions to pass
+                        root.destroy() 
                 else:
                     print("FAILURE: No questions parsed. Tesseract integration may have failed.")
                     if is_test_mode:
-                        sys.exit(1) # Forces GitHub Actions to fail the workflow
+                        sys.exit(1) 
             
-            # Delay execution slightly to ensure the GUI has initialized
             root.after(500, run_automated_test)
 
     root.mainloop()
