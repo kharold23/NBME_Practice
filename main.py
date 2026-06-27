@@ -103,6 +103,8 @@ class NBMESimulatorApp:
         self.color_white = "#ffffff"
         self.color_black = "#000000"
         
+        self.font_size_offset = 0
+
         # Tkinter / TTK Font Set
         self.tk_font = tkfont.Font(family="Arial", size=18)
         self.tk_font_bold = tkfont.Font(family="Arial", size=18, weight="bold")
@@ -180,7 +182,7 @@ class NBMESimulatorApp:
         self.scrollable_main_frame.bind("<Configure>", self._on_scrollable_frame_configure)
         self.main_canvas.bind('<Configure>', self._on_main_canvas_configure)
         self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
-        self.main_canvas.pack(side="left", fill="both", expand=True, padx=(40, 0), pady=30)
+        self.main_canvas.pack(side="left", fill="both", expand=True, padx=(50, 20), pady=30)
         self.main_scrollbar.pack(side="right", fill="y")
         
         self._bind_mousewheel(self.main_canvas)
@@ -190,7 +192,7 @@ class NBMESimulatorApp:
         self.content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self._bind_mousewheel(self.content_frame)
         
-        self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+        self.content_frame.columnconfigure(0, weight=85, uniform="panels")
         self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         self.content_frame.rowconfigure(0, weight=1) 
         
@@ -200,7 +202,7 @@ class NBMESimulatorApp:
         self.left_panel.bind("<Configure>", self.on_left_panel_configure)
         
         self.right_panel = tk.Frame(self.content_frame, bg=self.color_white)
-        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(20, 20))
+        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         self._bind_mousewheel(self.right_panel)
         
         self.text_question = tk.Text(self.left_panel, bg=self.color_white, fg=self.color_black, font=self.base_font, 
@@ -221,11 +223,28 @@ class NBMESimulatorApp:
         self.text_question_bottom.tag_bind("highlight", "<Button-1>", self.remove_highlight)
         self._bind_mousewheel(self.text_question_bottom)
 
-        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=self.tk_font).pack(side=tk.TOP, pady=(0, 5))
+        tk.Label(self.right_panel, text="Reference Image\n(Click to Enlarge)", bg=self.color_white, fg="gray", font=self.tk_font).pack(side=tk.TOP, anchor='center', pady=(0, 5))
         self.lbl_preview = tk.Label(self.right_panel, bg=self.color_white, cursor="hand2", relief=tk.RIDGE, bd=2)
-        self.lbl_preview.pack(side=tk.TOP)
+        self.lbl_preview.pack(side=tk.TOP, anchor='center')
         self.lbl_preview.bind("<Button-1>", self.show_full_image)
         self._bind_mousewheel(self.lbl_preview)
+
+        self.font_controls_frame = tk.Frame(self.right_panel, bg=self.color_white)
+        self.font_controls_frame.pack(side=tk.TOP, anchor="center", pady=(30,10))
+
+        # Smaller "A" Button
+        self.btn_font_decrease = ctk.CTkButton(self.font_controls_frame, text="A", width=20, height=20, 
+                                               font=ctk.CTkFont(family="Arial", size=8, weight="bold"),
+                                               fg_color="#B4B4B4", text_color="#3A3A3A",
+                                               command=lambda: self.change_text_size(-2))
+        self.btn_font_decrease.pack(side=tk.LEFT, padx=2)
+
+        # Bigger "A" Button
+        self.btn_font_increase = ctk.CTkButton(self.font_controls_frame, text="A", width=20, height=20,
+                                               font=ctk.CTkFont(family="Arial", size=14, weight="bold"),
+                                               fg_color="#B4B4B4", text_color="#3A3A3A",
+                                               command=lambda: self.change_text_size(2))
+        self.btn_font_increase.pack(side=tk.LEFT, padx=2)
 
         self.lab_values_container = tk.Frame(self.right_panel, bg=self.color_white)
         tk.Label(self.lab_values_container, text="Lab Values Reference", bg=self.color_blue, fg=self.color_white, font=self.tk_font_bold).pack(side=tk.TOP, fill=tk.X)
@@ -434,7 +453,7 @@ class NBMESimulatorApp:
             base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
             path = os.path.join(base_dir, 'assets', filename)
             # DEBUG
-            path = os.path.join('assets', filename)
+            # path = os.path.join('assets', filename)
             if os.path.exists(path):
                 try:
                     img = Image.open(path)
@@ -497,6 +516,42 @@ class NBMESimulatorApp:
             self.main_canvas.itemconfig(self.canvas_window, height=canvas_height)
         else:
             self.main_canvas.itemconfig(self.canvas_window, height=event.height)
+
+    def change_text_size(self, delta):
+        # Update the offset
+        self.font_size_offset += delta
+
+        # Update standard tkinter fonts
+        self.tk_font.configure(size=18 + self.font_size_offset)
+        self.tk_font_bold.configure(size=18 + self.font_size_offset)
+        self.tk_font_underline.configure(size=18 + self.font_size_offset)
+        self.base_font.configure(size=22 + self.font_size_offset)
+        self.strike_font.configure(size=22 + self.font_size_offset)
+
+        # Update CustomTkinter fonts
+        self.ctk_font.configure(size=14 + self.font_size_offset)
+        self.ctk_font_bold.configure(size=14 + self.font_size_offset)
+        self.ctk_font_btn.configure(size=12 + self.font_size_offset)
+
+        # Adjust header and footer height mathematically (base height + scaled offset)
+        new_top_height = max(80, 100 + (self.font_size_offset * 4))
+        self.top_frame.configure(height=new_top_height)
+        
+        new_bottom_height = max(100, 120 + (self.font_size_offset * 4))
+        self.bottom_frame.configure(height=new_bottom_height)
+
+        # Refresh crossed-out option styling if currently reviewing/taking a test
+        if hasattr(self, 'radio_buttons'):
+            for rb in self.radio_buttons:
+                if isinstance(rb, tk.Label):
+                    if getattr(rb, 'is_crossed_out', False):
+                        rb.configure(font=self.strike_font)
+                    else:
+                        rb.configure(font=self.base_font)
+
+        # Re-adjust the main text blocks to ensure no text gets cut off
+        self._adjust_text_height()
+        self.root.update_idletasks()
 
     def _adjust_text_height(self):
         self.root.update_idletasks()
@@ -645,9 +700,9 @@ class NBMESimulatorApp:
         self.pause_window.grab_set() 
         
         ctk.CTkLabel(self.pause_window, text="Exam Paused", text_color=self.color_white, 
-                     font=self.ctk_font_large_bold).pack(pady=(50, 20))
+                     font=self.ctk_font_bold).pack(pady=(50, 20))
         ctk.CTkButton(self.pause_window, text="Resume", command=self.resume_timer, 
-                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=self.ctk_font_large_bold).pack()
+                     fg_color="white", text_color=self.color_blue, hover_color="#e0e0e0", font=self.ctk_font_bold).pack()
 
     def resume_timer(self):
         self.pause_window.destroy()
@@ -826,11 +881,11 @@ class NBMESimulatorApp:
         if self.lab_values_open:
             self.lab_values_container.pack_forget()
             self.lab_values_open = False
-            self.content_frame.columnconfigure(0, weight=80, uniform="panels")
+            self.content_frame.columnconfigure(0, weight=85, uniform="panels")
             self.content_frame.columnconfigure(1, weight=20, uniform="panels")
         else:
             self.lab_values_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(15, 0))
-            self.lab_tree.configure(height=30) 
+            self.lab_tree.configure(height=25) 
             self.lab_values_open = True
             self.content_frame.columnconfigure(0, weight=50, uniform="panels")
             self.content_frame.columnconfigure(1, weight=50, uniform="panels")
@@ -866,7 +921,7 @@ class NBMESimulatorApp:
         
         mode_text = "[REVIEW MODE ACTIVE]" if self.review_mode else "Click a question to navigate. Green = Answered, Red = Unanswered."
         ctk.CTkLabel(self.review_window, text=mode_text, text_color=self.color_black, 
-                     font=self.ctk_font_large_bold if self.review_mode else self.ctk_font_bold).pack(pady=10)
+                     font=self.ctk_font_bold).pack(pady=10)
         
         export_btn = ctk.CTkButton(self.review_window, text="Export Exam (PDF)", 
                                    command=self.export_to_pdf, fg_color=self.color_blue, text_color=self.color_white, 
@@ -1065,11 +1120,12 @@ class NBMESimulatorApp:
             self.lbl_preview.config(image="", text="No Preview\nAvailable")
 
         # 6. Rebuild Radio Buttons
-        for rb in self.radio_buttons: rb.destroy()
+        # Destroy all child widgets (frames, buttons, and labels) inside the options frame
+        for widget in self.options_frame.winfo_children():
+            widget.destroy()
+            
         self.radio_buttons.clear()
         rb_state = tk.DISABLED if self.review_mode else tk.NORMAL
-        
-        initial_wrap_width = max(100, self.left_panel.winfo_width() - 20)
         
         for i, opt in enumerate(q.options):
             option_frame = ctk.CTkFrame(self.options_frame, fg_color="transparent")
@@ -1077,7 +1133,7 @@ class NBMESimulatorApp:
             
             rb = ctk.CTkRadioButton(option_frame, text="", variable=q.selected_option, value=opt, 
                                     radiobutton_width=15, radiobutton_height=15, width=2, 
-                                    border_width_unchecked=2)
+                                    border_width_unchecked=2, state=rb_state)
             rb.pack(side="left")
             
             lbl_text = tk.Label(option_frame, text=opt, bg="white", font=self.base_font, anchor="w")
